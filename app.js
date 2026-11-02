@@ -275,15 +275,15 @@ async function vistaInicio() {
   html += '<div class="opciones">';
   html += '<a class="opcion" href="#/reportar"><div class="opcion-icono i-reportar">' + ICONO_REPORTAR + '</div>' +
     '<div><div class="opcion-titulo">Reportar actividades</div><div class="opcion-texto">Reporta un daño o una necesidad a Mantenimiento, Sistemas o Servicios Generales y sigue su estado.</div>' +
-    (c.porConfirmar ? '<span class="insignia">' + c.porConfirmar + ' por confirmar</span>' : '') + '</div></a>';
+    (c.abiertos ? '<span class="insignia insignia-gris">' + c.abiertos + ' en trámite</span>' : '') + '</div></a>';
   if (esPersonal()) {
     let detalle = '';
-    if (esLider()) detalle = (c.pendientes || 0) + ' por asignar · ' + (c.enCurso || 0) + ' en curso';
+    if (esLider()) detalle = (c.pendientes || 0) + ' por asignar · ' + (c.enCurso || 0) + ' en curso · ' + (c.porConfirmar || 0) + ' por confirmar';
     else detalle = (c.activas || 0) + ' actividades por hacer';
     html += '<a class="opcion" href="#/administrar"><div class="opcion-icono i-administrar">' + ICONO_ADMIN + '</div>' +
       '<div><div class="opcion-titulo">Administrar actividades</div><div class="opcion-texto">' +
       esc(esLider() ? 'Asigna y sigue las actividades de ' + (u.rol === 'Coordinador' ? 'los tres módulos' : u.modulo) + '.' : 'Tus actividades asignadas: inícialas y termínalas con evidencia.') +
-      '</div><span class="insignia ' + ((c.pendientes || c.activas) ? '' : 'insignia-gris') + '">' + esc(detalle) + '</span></div></a>';
+      '</div><span class="insignia ' + ((c.pendientes || c.activas || c.porConfirmar) ? '' : 'insignia-gris') + '">' + esc(detalle) + '</span></div></a>';
   }
   html += '</div>';
   pintar(html);
@@ -297,7 +297,7 @@ const ICONO_ADMIN = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden
 function pestanasReportar(activa) {
   return pestanas([
     { id: 'nuevo', texto: 'Nuevo reporte', href: '#/reportar' },
-    { id: 'mios', texto: 'Mis reportes', href: '#/mis-reportes', n: (E.contadores || {}).porConfirmar }
+    { id: 'mios', texto: 'Mis reportes', href: '#/mis-reportes' }
   ], activa);
 }
 
@@ -367,12 +367,10 @@ async function vistaMisReportes() {
   ponerBarra('Reportar actividades', true);
   cargando();
   const lista = await api('misReportes');
-  const porConfirmar = lista.filter((s) => s.estado === 'Por confirmar');
-  const abiertos = lista.filter((s) => s.estado !== 'Por confirmar' && ESTADOS_ABIERTOS.indexOf(s.estado) >= 0);
+  const abiertos = lista.filter((s) => ESTADOS_ABIERTOS.indexOf(s.estado) >= 0);
   const cerrados = lista.filter((s) => ESTADOS_ABIERTOS.indexOf(s.estado) < 0);
   let html = pestanasReportar('mios');
   if (!lista.length) html += vacio('Todavía no hay reportes de esta cuenta.');
-  if (porConfirmar.length) html += '<h3 class="subtitulo alerta">Confirma si quedó bien</h3>' + porConfirmar.map((s) => tarjeta(s, { mostrarArea: false })).join('');
   if (abiertos.length) html += '<h3 class="subtitulo">En trámite</h3>' + abiertos.map((s) => tarjeta(s, { mostrarArea: false })).join('');
   if (cerrados.length) html += '<h3 class="subtitulo">Cerrados</h3>' + cerrados.slice(0, 40).map((s) => tarjeta(s, { mostrarArea: false })).join('');
   pintar(html);
@@ -426,7 +424,7 @@ async function vistaAdministrar(pestana) {
   html += pestanas(tabs, p);
   const textosVacios = {
     'por-asignar': 'No hay solicitudes por asignar.', 'en-curso': 'No hay actividades en curso.',
-    'por-confirmar': 'No hay actividades esperando confirmación del área.', 'historial': 'El historial está vacío.',
+    'por-confirmar': 'No hay actividades terminadas esperando su confirmación.', 'historial': 'El historial está vacío.',
     'mias': 'No tiene actividades asignadas.'
   };
   html += grupos[p].map((s) => tarjeta(s)).join('') || vacio(textosVacios[p]);
@@ -458,7 +456,7 @@ async function vistaDetalle(id) {
     html += '<h3 class="subtitulo">Trabajo realizado</h3><p class="texto-largo">' + esc(s.trabajo) + '</p>' +
       (s.fotoEvidencia ? '<a href="' + esc(s.fotoEvidencia) + '" target="_blank" rel="noopener"><img class="foto" src="' + esc(s.fotoEvidencia) + '" alt="Foto de evidencia" loading="lazy" referrerpolicy="no-referrer"></a>' : '');
   }
-  if (s.comentarioArea) html += '<h3 class="subtitulo">Comentario del área</h3><p class="texto-largo">' + esc(s.comentarioArea) + '</p>';
+  if (s.comentario) html += '<h3 class="subtitulo">' + (s.estado === 'Cerrada' ? 'Comentario del líder' : 'Lo que pidió corregir el líder') + '</h3><p class="texto-largo">' + esc(s.comentario) + '</p>';
   html += '</article>';
   html += panelAcciones(s, a);
   html += '<h3 class="subtitulo">Historial</h3><ol class="historial">' +
@@ -473,9 +471,9 @@ function panelAcciones(s, a) {
   if (!a.length) return '';
   let h = '<section class="acciones">';
   if (a.indexOf('confirmar') >= 0) {
-    h += '<div class="accion-bloque destacado"><h3>¿Quedó bien el trabajo?</h3><p class="suave">El técnico marcó esta solicitud como terminada. Confirma para cerrarla o reábrela si algo falta.</p>' +
-      '<div class="botones-2"><button class="btn btn-ok" id="ac-conforme">Sí, quedó bien</button>' +
-      '<button class="btn btn-peligro" id="ac-reabrir">No, reabrir</button></div></div>';
+    h += '<div class="accion-bloque destacado"><h3>¿Quedó bien el trabajo?</h3><p class="suave">' + esc(s.tecnicoNombre || 'El técnico') + ' marcó esta actividad como terminada. Revise el trabajo y la foto: confírmela para cerrarla o devuélvala si falta algo.</p>' +
+      '<div class="botones-2"><button class="btn btn-ok" id="ac-conforme">Sí, cerrar</button>' +
+      '<button class="btn btn-peligro" id="ac-reabrir">No, devolver</button></div></div>';
   }
   if (a.indexOf('iniciar') >= 0) h += '<button class="btn btn-pri btn-ancho" id="ac-iniciar">Iniciar trabajo</button>';
   if (a.indexOf('terminar') >= 0) {
@@ -488,9 +486,6 @@ function panelAcciones(s, a) {
     h += '<div class="accion-bloque"><h3>' + (s.tecnico ? 'Reasignar' : 'Asignar técnico') + '</h3>' +
       '<label>Personal de ' + esc(s.modulo) + '<select id="ac-tecnico"><option value="">Cargando…</option></select></label>' +
       '<button class="btn btn-pri btn-ancho" id="ac-asignar">' + (s.tecnico ? 'Reasignar' : 'Asignar') + '</button></div>';
-  }
-  if (a.indexOf('cerrarSinConfirmar') >= 0) {
-    h += '<button class="btn btn-sec btn-ancho" id="ac-cerrar">Cerrar sin confirmación del área</button>';
   }
   if (a.indexOf('cambiarModulo') >= 0) {
     h += '<div class="accion-bloque"><h3>¿No le corresponde a ' + esc(s.modulo) + '?</h3>' +
@@ -509,19 +504,14 @@ function conectarAcciones(s, a) {
   const on = (sel, fn) => { const el = $(sel); if (el) el.addEventListener('click', () => fn(el)); };
 
   on('#ac-conforme', async (b) => {
-    const c = await pedirTexto({ titulo: 'Confirmar que quedó bien', mensaje: 'Puede dejar un comentario (opcional).', boton: 'Confirmar y cerrar' });
-    if (c !== null) ejecutar(b, 'Cerrando…', 'confirmar', { conforme: true, comentario: c }, 'Gracias. La solicitud quedó cerrada.');
+    const c = await pedirTexto({ titulo: 'Confirmar y cerrar', mensaje: 'El área recibirá el aviso de que su solicitud quedó realizada. Puede dejar un comentario (opcional).', boton: 'Confirmar y cerrar' });
+    if (c !== null) ejecutar(b, 'Cerrando…', 'confirmar', { conforme: true, comentario: c }, 'Solicitud cerrada. El área fue notificada.');
   });
   on('#ac-reabrir', async (b) => {
-    const c = await pedirTexto({ titulo: '¿Qué faltó?', mensaje: 'El líder recibirá su comentario y la solicitud volverá a atenderse.', boton: 'Reabrir', requerido: true, peligro: true, placeholder: 'Ej: el aire sigue goteando' });
-    if (c) ejecutar(b, 'Reabriendo…', 'confirmar', { conforme: false, comentario: c }, 'Solicitud reabierta. El líder fue notificado.');
+    const c = await pedirTexto({ titulo: '¿Qué falta por hacer?', mensaje: 'La actividad vuelve al técnico con su comentario.', boton: 'Devolver al técnico', requerido: true, peligro: true, placeholder: 'Ej: el aire sigue goteando' });
+    if (c) ejecutar(b, 'Devolviendo…', 'confirmar', { conforme: false, comentario: c }, 'Actividad devuelta. El técnico fue notificado.');
   });
   on('#ac-iniciar', (b) => ejecutar(b, 'Iniciando…', 'iniciar', {}, 'Trabajo iniciado'));
-  on('#ac-cerrar', async (b) => {
-    if (await confirmar({ titulo: 'Cerrar sin confirmación', mensaje: 'Use esta opción solo si el área no responde. Quedará registrado en el historial.', boton: 'Cerrar solicitud' })) {
-      ejecutar(b, 'Cerrando…', 'cerrarSinConfirmar', {}, 'Solicitud cerrada');
-    }
-  });
   on('#ac-remitir', async (b) => {
     const m = $('#ac-modulo').value;
     if (await confirmar({ titulo: 'Remitir a ' + m, mensaje: 'El líder de ' + m + ' recibirá la solicitud.', boton: 'Remitir' })) {
@@ -557,7 +547,7 @@ function conectarAcciones(s, a) {
         try {
           const foto = await fotoDe(ft, 'evidencia');
           await api('terminar', { id: s.id, trabajo: ft.trabajo.value, foto });
-          hecho('Actividad terminada. El líder y el área fueron notificados.');
+          hecho('Actividad terminada. El líder fue notificado para confirmarla.');
         } catch (e) { mostrarError(e.message); }
       });
     });
@@ -641,6 +631,8 @@ async function cargarFirebase() {
   msgMod.onMessage(messaging, (p) => {
     const n = p.notification || {};
     const id = p.data && p.data.solicitud;
+    // Con la app abierta también se muestra el aviso del sistema (con sonido) y vibra.
+    mostrarAvisoSistema(n.title || 'Notificación', n.body || '', id);
     toast((n.title || 'Notificación') + (n.body ? ': ' + n.body : ''), {
       duracion: 8000, accion: id ? () => { location.hash = '#/solicitud/' + encodeURIComponent(id); } : null
     });
@@ -648,6 +640,28 @@ async function cargarFirebase() {
   });
   FB = { messaging, getToken: msgMod.getToken };
   return FB;
+}
+
+async function mostrarAvisoSistema(titulo, cuerpo, id) {
+  try {
+    if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+    if (!window.Notification || Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) return;
+    const base = location.href.split('#')[0];
+    await reg.showNotification(titulo, {
+      body: cuerpo, icon: base.replace(/[^/]*$/, '') + 'icon-192.png', tag: id || 'general', renotify: true,
+      silent: false, vibrate: [300, 100, 300, 100, 300],
+      data: { url: base + (id ? '#/solicitud/' + encodeURIComponent(id) : '#/') }
+    });
+  } catch (e) { /* si falla, queda el aviso dentro de la app */ }
+}
+
+function traducirErrorPush(m) {
+  if (/push service error|Registration failed/i.test(m)) {
+    return 'El navegador bloqueó las notificaciones. Si usa Brave, active "Usar servicios de Google para mensajería push" en brave://settings/privacy y reinicie. En Android use Google Chrome.';
+  }
+  return m;
 }
 
 function estadoPush() {
@@ -677,7 +691,7 @@ async function activarPush(silencioso) {
     if (!silencioso) { toast('Notificaciones activadas en este dispositivo'); enrutar(); }
   } catch (e) {
     console.warn('Push:', e);
-    if (!silencioso) mostrarError(e.message === 'NO_SOPORTADO' ? 'Este navegador no admite notificaciones. Use Chrome en Android o instale la app en iPhone.' : e.message);
+    if (!silencioso) mostrarError(e.message === 'NO_SOPORTADO' ? 'Este navegador no admite notificaciones. Use Chrome en Android o instale la app en iPhone.' : traducirErrorPush(e.message));
   }
 }
 
