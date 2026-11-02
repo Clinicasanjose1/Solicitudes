@@ -8,7 +8,7 @@ self.APP_CONFIG = {
   NOMBRE_CLINICA: 'Clínica San José de Cúcuta',
 
   // Paso 3 de la guía: URL de la aplicación web de Apps Script (termina en /exec)
-  API_URL: https://script.google.com/macros/s/AKfycbybh4320Zxf4Jsrls31LZj_VjolEwm8i7U1XXZt09xTEBKDCaJ9ou6qhzYZ9CdG8Dnv/exec
+  API_URL: 'https://script.google.com/macros/s/AKfycbybh4320Zxf4Jsrls31LZj_VjolEwm8i7U1XXZt09xTEBKDCaJ9ou6qhzYZ9CdG8Dnv/exec',
 
   // Paso 4 de la guía: configuración de la app web de Firebase
   FIREBASE: {
@@ -21,5 +21,5 @@ self.APP_CONFIG = {
   },
 
   // Paso 4 de la guía: clave pública de notificaciones web (Web Push, "par de claves")
-  FIREBASE_VAPID_KEY: BBLLGBPN-pzTmm5KAWGBbn9nEQ8UkwXEKa9vs3GfLXRntQ8Lg7XtI2aOhTZp6Q4y_Z6NH8ckSXnRucaGc0GCWGs
+  FIREBASE_VAPID_KEY: 'BBLLGBPN-pzTmm5KAWGBbn9nEQ8UkwXEKa9vs3GfLXRntQ8Lg7XtI2aOhTZp6Q4y_Z6NH8ckSXnRucaGc0GCWGs'
 };
