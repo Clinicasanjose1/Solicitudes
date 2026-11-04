@@ -1,8 +1,8 @@
 /* App de Solicitudes — Clínica San José de Cúcuta */
 :root {
-  --azul: #0b5d7a;
-  --azul-osc: #084457;
-  --azul-claro: #e6f2f6;
+  --azul: #00436e;
+  --azul-osc: #002f4d;
+  --azul-claro: #e6eef5;
   --verde: #1f8a4c;
   --rojo: #c0392b;
   --naranja: #d9822b;
@@ -50,7 +50,7 @@ h1, h2, h3 { line-height: 1.2; }
 
 /* Login */
 .login { max-width: 380px; margin: 6vh auto 0; text-align: center; }
-.login-logo { width: 84px; height: 84px; border-radius: 20px; box-shadow: var(--sombra); }
+.login-logo { width: 120px; height: 120px; border-radius: 26px; box-shadow: var(--sombra); }
 .login h1 { margin: 16px 0 4px; font-size: 26px; color: var(--azul-osc); }
 .tarjeta-form { background: var(--blanco); border-radius: var(--radio); padding: 20px; margin: 24px 0 16px; box-shadow: var(--sombra); text-align: left; display: grid; gap: 14px; }
 
@@ -62,7 +62,7 @@ input, select, textarea {
   border: 1.5px solid var(--borde); border-radius: 10px; padding: 11px 12px; min-height: 46px;
 }
 textarea { resize: vertical; }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(11, 93, 122, .15); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(0, 67, 110, .18); }
 select:disabled { background: #f0f3f4; color: var(--suave); }
 .invalido { border-color: var(--rojo) !important; }
 .formulario { display: grid; gap: 16px; background: var(--blanco); padding: 18px; border-radius: var(--radio); box-shadow: var(--sombra); }

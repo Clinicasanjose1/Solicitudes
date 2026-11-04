@@ -143,7 +143,7 @@ function tarjeta(s, opciones) {
     '<div class="tarjeta-arriba"><span class="tarjeta-id">' + esc(s.id) + '</span>' + chipPrioridad(s.prioridad) + chipEstado(s.estado) + '</div>' +
     '<div class="tarjeta-titulo">' + esc(s.tipo) + '</div>' +
     '<div class="tarjeta-linea">' + esc(o.mostrarArea === false ? s.modulo : s.area + ' · ' + s.modulo) + '</div>' +
-    '<div class="tarjeta-linea">Piso ' + esc(s.piso) + ' · ' + esc(s.ubicacion) + '</div>' +
+    '<div class="tarjeta-linea">' + (s.servicio ? esc(s.servicio) + ' · ' : '') + 'Piso ' + esc(s.piso) + ' · ' + esc(s.ubicacion) + '</div>' +
     '<div class="tarjeta-pie"><span>' + esc(hace(s.fecha)) + '</span>' +
     (s.tecnicoNombre ? '<span>' + esc(s.tecnicoNombre) + '</span>' : '') + '</div></a>';
 }
@@ -229,7 +229,7 @@ async function vistaLogin() {
     '<label>PIN<input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required></label>' +
     '<button class="btn btn-pri btn-ancho" type="submit">Entrar</button>' +
     '</form>' +
-    '<p class="suave pequeno">¿No tiene usuario? Pídalo al líder de Mantenimiento, Sistemas o Servicios Generales.</p>' +
+    '<p class="suave pequeno">¿No tiene usuario? Pídalo al líder de Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos.</p>' +
     '</div>');
   $('#form-login').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -274,7 +274,7 @@ async function vistaInicio() {
   html += avisoPush();
   html += '<div class="opciones">';
   html += '<a class="opcion" href="#/reportar"><div class="opcion-icono i-reportar">' + ICONO_REPORTAR + '</div>' +
-    '<div><div class="opcion-titulo">Reportar actividades</div><div class="opcion-texto">Reporta un daño o una necesidad a Mantenimiento, Sistemas o Servicios Generales y sigue su estado.</div>' +
+    '<div><div class="opcion-titulo">Reportar actividades</div><div class="opcion-texto">Reporta un daño o una necesidad a Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos y sigue su estado.</div>' +
     (c.abiertos ? '<span class="insignia insignia-gris">' + c.abiertos + ' en trámite</span>' : '') + '</div></a>';
   if (esPersonal()) {
     let detalle = '';
@@ -303,7 +303,7 @@ function pestanasReportar(activa) {
 
 async function vistaReportar() {
   ponerBarra('Reportar actividades', true);
-  if (!E.config) await refrescarResumen();
+  if (!E.config || !E.config.torres) await refrescarResumen();
   const cfg = E.config;
   const opcionesAreas = esLider() ?
     '<fieldset class="caja-lider"><legend>Registrar a nombre de un área (reportes por WhatsApp o llamada)</legend>' +
@@ -317,6 +317,10 @@ async function vistaReportar() {
     cfg.modulos.map((m, i) => '<label class="modulo-op"><input type="radio" name="modulo" value="' + esc(m) + '"' + (i === 0 ? '' : '') + ' required><span>' + esc(m) + '</span></label>').join('') +
     '</div></div>' +
     '<label>Tipo de solicitud<select name="tipo" required disabled><option value="">Primero elija a quién va dirigido</option></select></label>' +
+    '<div class="campo"><span class="etiqueta">Ubicación del servicio</span><div class="modulos torres">' +
+    cfg.torres.map((t) => '<label class="modulo-op"><input type="radio" name="torre" value="' + esc(t) + '" required><span>' + esc(t) + '</span></label>').join('') +
+    '</div></div>' +
+    '<label id="campo-servicio" hidden><span id="etiqueta-servicio">Servicio</span><select name="servicio" required></select></label>' +
     '<div class="fila2"><label>Piso<select name="piso" required><option value="">Elija</option>' +
     cfg.pisos.map((p) => '<option>' + esc(p) + '</option>').join('') + '</select></label>' +
     '<label>Ubicación exacta<input name="ubicacion" required maxlength="120" placeholder="Ej: Habitación 304"></label></div>' +
@@ -335,16 +339,30 @@ async function vistaReportar() {
     f.tipo.disabled = false;
     f.tipo.innerHTML = '<option value="">Elija el tipo</option>' + tipos.map((t) => '<option>' + esc(t) + '</option>').join('');
   }));
+  $$('input[name=torre]', f).forEach((r) => r.addEventListener('change', () => {
+    const servicios = (cfg.servicios || {})[r.value] || [];
+    $('#campo-servicio').hidden = false;
+    $('#etiqueta-servicio').textContent = 'Servicio ' + r.value.split(',')[0];
+    f.servicio.innerHTML = '<option value="">Elija el servicio</option>' + servicios.map((x) => '<option>' + esc(x) + '</option>').join('');
+    f.ubicacion.placeholder = 'Ej: Habitación 304';
+  }));
+  f.servicio.addEventListener('change', () => {
+    f.ubicacion.placeholder = /no está en la lista/i.test(f.servicio.value) ? 'Escriba el servicio y el lugar exacto' : 'Ej: Habitación 304';
+  });
   conectarFoto(f, 'foto');
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const torreSel = $('input[name=torre]:checked', f);
     const datos = {
-      modulo: (f.modulo.value || ''), tipo: f.tipo.value, piso: f.piso.value, ubicacion: f.ubicacion.value,
+      modulo: (f.modulo.value || ''), tipo: f.tipo.value, torre: torreSel ? torreSel.value : '', servicio: f.servicio.value,
+      piso: f.piso.value, ubicacion: f.ubicacion.value,
       descripcion: f.descripcion.value, prioridad: f.prioridad.value, reportadoPor: f.reportadoPor.value
     };
     const faltan = [];
     if (!datos.modulo) faltan.push('a quién va dirigido');
     if (!datos.tipo) faltan.push('el tipo');
+    if (!datos.torre) faltan.push('la ubicación del servicio');
+    else if (!datos.servicio) faltan.push('el servicio');
     if (!datos.piso) faltan.push('el piso');
     if (!datos.ubicacion.trim()) faltan.push('la ubicación');
     if (!datos.descripcion.trim()) faltan.push('la descripción');
@@ -447,7 +465,9 @@ async function vistaDetalle(id) {
     '<div class="detalle-cabeza"><span class="tarjeta-id">' + esc(s.id) + '</span>' + chipPrioridad(s.prioridad) + chipEstado(s.estado) + '</div>' +
     '<h2>' + esc(s.tipo) + '</h2><p class="suave">' + esc(s.modulo) + '</p>' +
     '<dl class="datos">' +
-    dato('Área', s.area) + dato('Reportado por', s.reportadoPor) + dato('Ubicación', 'Piso ' + s.piso + ' · ' + s.ubicacion) +
+    dato('Área', s.area) + dato('Reportado por', s.reportadoPor) +
+    (s.torre ? dato('Torre', s.torre) : '') + (s.servicio ? dato('Servicio', s.servicio) : '') +
+    dato('Ubicación', 'Piso ' + s.piso + ' · ' + s.ubicacion) +
     dato('Fecha', fechaCorta(s.fecha)) + (s.origen && s.origen !== 'App' ? dato('Recibido por', s.origen) : '') +
     (s.tecnicoNombre ? dato('Atiende', s.tecnicoNombre) : '') + '</dl>' +
     '<h3 class="subtitulo">Descripción</h3><p class="texto-largo">' + esc(s.descripcion) + '</p>' +
