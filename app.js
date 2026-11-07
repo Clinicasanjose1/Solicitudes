@@ -51,7 +51,7 @@ function hace(iso) {
   return d === 1 ? 'ayer' : 'hace ' + d + ' días';
 }
 const esAdmin = () => E.usuario && (E.usuario.rol === 'Admin' || E.usuario.rol === 'Coordinador');
-const esLider = () => E.usuario && (E.usuario.rol === 'Líder' || esAdmin());
+const esLider = () => E.usuario && E.usuario.rol === 'Líder';
 const esPersonal = () => E.usuario && E.usuario.rol !== 'Área';
 const esIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -196,6 +196,7 @@ const PILA = []; // pantallas visitadas, para el botón Atrás
 
 async function enrutar() {
   cerrarModal();
+  document.body.classList.remove('en-login', 'en-inicio');
   const h = location.hash || '#/';
   if (PILA[PILA.length - 1] !== h) {
     if (PILA[PILA.length - 2] === h) PILA.pop(); else PILA.push(h);
@@ -220,24 +221,49 @@ async function enrutar() {
 }
 
 // -------------------------------- login --------------------------------
+const SVG_USUARIO = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const SVG_CANDADO = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></svg>';
+const SVG_OJO = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const SVG_OJO_NO = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 21L21 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const SVG_ENTRAR = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l4-4-4-4M14 12H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 async function vistaLogin() {
   $('#barra').hidden = true;
+  document.body.classList.add('en-login');
   pintar(
+    '<div class="login-escena" aria-hidden="true">' +
+    '<div class="login-foto"></div>' +
+    '<svg class="login-curva curva-arriba" viewBox="0 0 600 300" preserveAspectRatio="none"><path d="M0 0H600C430 30 250 90 120 190 70 228 30 262 0 300Z" fill="#00335a"/><path d="M0 300C40 240 120 170 260 110 360 66 470 36 600 20" fill="none" stroke="#2f74d0" stroke-opacity=".55" stroke-width="10"/></svg>' +
+    '<svg class="login-curva curva-abajo" viewBox="0 0 600 300" preserveAspectRatio="none"><path d="M600 300H0C170 280 350 220 480 120 530 82 570 40 600 0Z" fill="#00335a"/><path d="M600 0C560 60 480 130 340 190 240 232 130 262 0 280" fill="none" stroke="#2f74d0" stroke-opacity=".55" stroke-width="10"/></svg>' +
+    '<svg class="login-cruz cruz-1" viewBox="0 0 100 100"><path d="M36 6h28v30h30v28H64v30H36V64H6V36h30z" fill="none" stroke="#9ab8e0" stroke-width="3" stroke-linejoin="round"/></svg>' +
+    '<svg class="login-cruz cruz-2" viewBox="0 0 100 100"><path d="M36 6h28v30h30v28H64v30H36V64H6V36h30z" fill="#cddcf2"/></svg>' +
+    '</div>' +
     '<div class="login">' +
-    '<img src="icon-192.png" alt="" class="login-logo">' +
+    '<img src="icon-512.png" alt="Clínica San José de Cúcuta" class="login-logo">' +
     '<h1>' + esc(CFG.NOMBRE_APP || 'Solicitudes') + '</h1>' +
-    '<p class="suave">' + esc(CFG.NOMBRE_CLINICA || '') + '</p>' +
-    '<form id="form-login" class="tarjeta-form" autocomplete="on">' +
-    '<label>Usuario<input name="usuario" autocomplete="username" autocapitalize="none" required placeholder="Ej: urgencias"></label>' +
-    '<label>PIN<input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required></label>' +
-    '<button class="btn btn-pri btn-ancho" type="submit">Entrar</button>' +
+    '<p class="login-clinica">' + esc(CFG.NOMBRE_CLINICA || '') + '</p>' +
+    '<div class="login-divisor"><svg viewBox="0 0 40 20" width="32" height="16" aria-hidden="true"><path d="M0 10h11l3-7 5 14 4-10 3 3h14" fill="none" stroke="#00436e" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div>' +
+    '<form id="form-login" class="login-tarjeta" autocomplete="on">' +
+    '<div class="login-campo"><span class="login-icono">' + SVG_USUARIO + '</span><label>Usuario<input name="usuario" autocomplete="username" autocapitalize="none" required placeholder="Ej: urgencias"></label></div>' +
+    '<div class="login-campo"><span class="login-icono">' + SVG_CANDADO + '</span><label>PIN<span class="con-ojo"><input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required placeholder="Ingrese su PIN">' +
+    '<button type="button" class="ver-pin" aria-label="Mostrar PIN">' + SVG_OJO_NO + '</button></span></label></div>' +
+    '<button class="btn btn-pri btn-ancho btn-entrar" type="submit">' + SVG_ENTRAR + 'Entrar</button>' +
     '</form>' +
-    '<p class="suave pequeno">¿No tiene usuario? Pídalo al líder de Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos.</p>' +
+    '<div class="login-divisor info"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#00436e" stroke-width="1.6"/><path d="M12 11v6M12 7.5v.5" stroke="#00436e" stroke-width="2" stroke-linecap="round"/></svg></div>' +
+    '<p class="login-ayuda">¿No tiene usuario? Pídalo al líder de Mantenimiento e Infraestructura, Sistemas o Equipos Biomédicos.</p>' +
     '</div>');
+  const verPin = $('.ver-pin');
+  verPin.addEventListener('click', () => {
+    const campo = $('#form-login').pin;
+    const mostrar = campo.type === 'password';
+    campo.type = mostrar ? 'text' : 'password';
+    verPin.innerHTML = mostrar ? SVG_OJO : SVG_OJO_NO;
+    verPin.setAttribute('aria-label', mostrar ? 'Ocultar PIN' : 'Mostrar PIN');
+  });
   $('#form-login').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
-    await conBoton($('button', f), 'Entrando…', async () => {
+    await conBoton($('button[type=submit]', f), 'Entrando…', async () => {
       try {
         const r = await api('login', { usuario: f.usuario.value, pin: f.pin.value });
         E.token = r.token; E.usuario = r.usuario; E.config = r.config;
@@ -265,38 +291,69 @@ async function cerrarSesion() {
 }
 
 // -------------------------------- inicio --------------------------------
+/** Primer nombre de la persona; vacío si en "Nombre" quedó un cargo (ej. "Líder de Sistemas"). */
+function nombreSaludo(u) {
+  if (!u || u.rol === 'Área') return '';
+  const n = String(u.nombre || '').trim();
+  if (!n || /^(l[ií]der|t[eé]cnico|auxiliar|admin|coordinador|jefe)\b/i.test(n)) return '';
+  return n.split(/\s+/)[0];
+}
+
+function heroInicio(u, c) {
+  const nombre = nombreSaludo(u);
+  let cargo;
+  if (u.rol === 'Área') cargo = 'Cuenta de ' + u.nombre;
+  else if (esAdmin()) cargo = 'Administración · ' + (CFG.NOMBRE_CLINICA || 'Clínica');
+  else cargo = u.rol + ' de ' + u.modulo;
+  const hoy = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
+  let cifras = [];
+  if (esLider()) cifras = [[c.pendientes, 'Por asignar'], [c.enCurso, 'En curso'], [c.porConfirmar, 'Por confirmar']];
+  else if (esPersonal() && !esAdmin()) cifras = [[c.activas, 'Por hacer'], [c.abiertos, 'Mis reportes en trámite']];
+  else cifras = [[c.abiertos, 'Reportes en trámite']];
+  return '<section class="hero">' +
+    '<svg class="hero-cruz" viewBox="0 0 100 100" aria-hidden="true"><path d="M36 6h28v30h30v28H64v30H36V64H6V36h30z" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></svg>' +
+    '<div class="hero-interior">' +
+    '<div class="hero-fecha">' + esc(hoy.charAt(0).toUpperCase() + hoy.slice(1)) + '</div>' +
+    '<h2>Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h2>' +
+    '<div class="hero-cargo">' + esc(cargo) + '</div>' +
+    '<div class="hero-cifras">' + cifras.map(([n, t]) => '<div class="hero-cifra"><strong>' + (n || 0) + '</strong><span>' + esc(t) + '</span></div>').join('') + '</div>' +
+    '</div></section>';
+}
+
 async function vistaInicio() {
   ponerBarra(CFG.NOMBRE_APP || 'Solicitudes', false);
+  document.body.classList.add('en-inicio');
   if (!E.usuario) cargando();
   await refrescarResumen();
   const u = E.usuario;
   if (!u) throw new Error('No se pudo cargar su información. Revise la conexión.');
   const c = E.contadores || {};
-  let html = '<section class="saludo"><h2>Hola, ' + esc(u.nombre) + '</h2><p class="suave">' +
-    esc(u.rol === 'Área' ? 'Cuenta del área' : u.rol + (u.modulo && u.modulo !== 'Todos' ? ' · ' + u.modulo : '')) + '</p></section>';
+  let html = '';
+  html = heroInicio(u, c);
   html += avisoPush();
   html += '<div class="opciones">';
   html += '<a class="opcion" href="#/reportar"><div class="opcion-icono i-reportar">' + ICONO_REPORTAR + '</div>' +
     '<div><div class="opcion-titulo">Reportar actividades</div><div class="opcion-texto">Reporta un daño o una necesidad a Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos y sigue su estado.</div>' +
-    (c.abiertos ? '<span class="insignia insignia-gris">' + c.abiertos + ' en trámite</span>' : '') + '</div></a>';
-  if (esPersonal()) {
+    '</div>' + FLECHA + '</a>';
+  if (esPersonal() && !esAdmin()) {
     let detalle = '';
     if (esLider()) detalle = (c.pendientes || 0) + ' por asignar · ' + (c.enCurso || 0) + ' en curso · ' + (c.porConfirmar || 0) + ' por confirmar';
     else detalle = (c.activas || 0) + ' actividades por hacer';
     html += '<a class="opcion" href="#/administrar"><div class="opcion-icono i-administrar">' + ICONO_ADMIN + '</div>' +
       '<div><div class="opcion-titulo">Administrar actividades</div><div class="opcion-texto">' +
       esc(esLider() ? 'Asigna y sigue las actividades de ' + (esAdmin() ? 'los tres módulos' : u.modulo) + '.' : 'Tus actividades asignadas: inícialas y termínalas con evidencia.') +
-      '</div><span class="insignia ' + ((c.pendientes || c.activas || c.porConfirmar) ? '' : 'insignia-gris') + '">' + esc(detalle) + '</span></div></a>';
+      '</div></div>' + FLECHA + '</a>';
   }
   if (esAdmin()) {
     html += '<a class="opcion" href="#/dashboard"><div class="opcion-icono i-dashboard">' + ICONO_DASHBOARD + '</div>' +
-      '<div><div class="opcion-titulo">Dashboard</div><div class="opcion-texto">Efectividad de cada módulo y reportes por área, servicio y persona.</div></div></a>';
+      '<div><div class="opcion-titulo">Historial</div><div class="opcion-texto">Efectividad de cada módulo y reportes por área, servicio y persona.</div></div>' + FLECHA + '</a>';
   }
   html += '</div>';
   pintar(html);
   conectarAvisoPush();
 }
 
+const FLECHA = '<svg class="opcion-flecha" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const ICONO_DASHBOARD = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
 const ICONO_REPORTAR = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M9 4h6l1 2h3v14H5V6h3l1-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v6M9 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -314,7 +371,7 @@ async function vistaReportar() {
   ponerBarra('Reportar actividades', true);
   if (!E.config || !E.config.torres) await refrescarResumen();
   const cfg = E.config;
-  const opcionesAreas = esLider() ?
+  const opcionesAreas = (esLider() || esAdmin()) ?
     '<fieldset class="caja-lider"><legend>Registrar a nombre de un área (reportes por WhatsApp o llamada)</legend>' +
     '<label>Área<select name="cuentaArea"><option value="">— No, lo reporto yo —</option>' +
     cfg.areas.map((a) => '<option value="' + esc(a.usuario) + '">' + esc(a.nombre) + '</option>').join('') + '</select></label>' +
@@ -384,7 +441,7 @@ async function vistaReportar() {
         const r = await api('crearSolicitud', datos);
         guardar('ultimoNombre', datos.reportadoPor.trim());
         toast('Reporte ' + r.id + ' enviado. El líder de ' + datos.modulo + ' ya fue notificado.');
-        location.hash = datos.cuentaArea ? '#/administrar' : '#/mis-reportes';
+        location.hash = datos.cuentaArea ? (esAdmin() ? '#/' : '#/administrar') : '#/mis-reportes';
       } catch (e) { mostrarError(e.message); }
     });
   });
@@ -405,7 +462,7 @@ async function vistaMisReportes() {
 
 // ----------------------------- administrar -----------------------------
 async function vistaAdministrar(pestana) {
-  if (!esPersonal()) { location.replace('#/'); return; }
+  if (!esPersonal() || esAdmin()) { location.replace('#/'); return; }
   ponerBarra('Administrar actividades', true);
   cargando();
   const u = E.usuario;
@@ -661,7 +718,7 @@ function columnas(serie, periodo) {
 async function vistaDashboard(periodo) {
   if (!esAdmin()) { location.replace('#/'); return; }
   const p = PERIODOS.some((x) => x[0] === periodo) ? periodo : 'mes';
-  ponerBarra('Dashboard', true);
+  ponerBarra('Historial', true);
   cargando();
   const d = await api('dashboard', { periodo: p });
   const g = d.general;
