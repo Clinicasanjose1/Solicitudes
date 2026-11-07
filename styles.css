@@ -339,3 +339,5 @@ body.en-inicio .aviso ~ .opciones { margin-top: 0; }
 .opcion { grid-template-columns: 56px 1fr 22px; align-items: center; border-radius: 18px; box-shadow: 0 2px 4px rgba(16, 40, 50, .04), 0 8px 22px rgba(16, 40, 50, .08); }
 .opcion-flecha { color: #9fb0bb; }
 @media (min-width: 760px) { .hero { border-radius: 0 0 36px 36px; } .hero-interior { padding: 30px 24px 72px; } .hero-cruz { right: 6vw; width: 190px; } }
+
+.hero h2.nombre-largo { font-size: 24px; line-height: 1.2; }

@@ -291,12 +291,12 @@ async function cerrarSesion() {
 }
 
 // -------------------------------- inicio --------------------------------
-/** Primer nombre de la persona; vacío si en "Nombre" quedó un cargo (ej. "Líder de Sistemas"). */
+/** Nombre completo de la persona; vacío si en "Nombre" quedó un cargo (ej. "Líder de Sistemas"). */
 function nombreSaludo(u) {
   if (!u || u.rol === 'Área') return '';
   const n = String(u.nombre || '').trim();
   if (!n || /^(l[ií]der|t[eé]cnico|auxiliar|admin|coordinador|jefe)\b/i.test(n)) return '';
-  return n.split(/\s+/)[0];
+  return n.replace(/\s+/g, ' ');
 }
 
 function heroInicio(u, c) {
@@ -314,7 +314,7 @@ function heroInicio(u, c) {
     '<svg class="hero-cruz" viewBox="0 0 100 100" aria-hidden="true"><path d="M36 6h28v30h30v28H64v30H36V64H6V36h30z" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></svg>' +
     '<div class="hero-interior">' +
     '<div class="hero-fecha">' + esc(hoy.charAt(0).toUpperCase() + hoy.slice(1)) + '</div>' +
-    '<h2>Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h2>' +
+    '<h2 class="' + (nombre.length > 22 ? 'nombre-largo' : '') + '">Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h2>' +
     '<div class="hero-cargo">' + esc(cargo) + '</div>' +
     '<div class="hero-cifras">' + cifras.map(([n, t]) => '<div class="hero-cifra"><strong>' + (n || 0) + '</strong><span>' + esc(t) + '</span></div>').join('') + '</div>' +
     '</div></section>';
