@@ -11,7 +11,8 @@ const CLASE_ESTADO = {
   'Pendiente': 'e-pendiente', 'Reabierta': 'e-reabierta', 'Asignada': 'e-asignada', 'En proceso': 'e-proceso',
   'Por confirmar': 'e-confirmar', 'Cerrada': 'e-cerrada', 'Cancelada': 'e-cancelada'
 };
-const ORDEN_PRIORIDAD = { 'Urgente': 0, 'Alta': 1, 'Normal': 2 };
+const ORDEN_PRIORIDAD = { 'Urgente': 0, 'Alta': 1, 'Media': 2, 'Normal': 2, 'Baja': 3 };
+const CLASE_PRIORIDAD = { 'Urgente': 'p-urgente', 'Alta': 'p-alta', 'Media': 'p-media', 'Normal': 'p-media', 'Baja': 'p-baja' };
 
 const E = {
   token: leer('token'),
@@ -49,7 +50,8 @@ function hace(iso) {
   const d = Math.round(h / 24);
   return d === 1 ? 'ayer' : 'hace ' + d + ' días';
 }
-const esLider = () => E.usuario && (E.usuario.rol === 'Líder' || E.usuario.rol === 'Coordinador');
+const esAdmin = () => E.usuario && (E.usuario.rol === 'Admin' || E.usuario.rol === 'Coordinador');
+const esLider = () => E.usuario && (E.usuario.rol === 'Líder' || esAdmin());
 const esPersonal = () => E.usuario && E.usuario.rol !== 'Área';
 const esIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -135,7 +137,7 @@ function pintar(html) { $('#app').innerHTML = html; window.scrollTo(0, 0); }
 function cargando() { $('#app').innerHTML = '<div class="cargando"><span class="girando grande"></span>Cargando…</div>'; }
 
 function chipEstado(e) { return '<span class="chip ' + (CLASE_ESTADO[e] || '') + '">' + esc(e) + '</span>'; }
-function chipPrioridad(p) { return p === 'Normal' ? '' : '<span class="chip ' + (p === 'Urgente' ? 'p-urgente' : 'p-alta') + '">' + esc(p) + '</span>'; }
+function chipPrioridad(p) { return p ? '<span class="chip ' + (CLASE_PRIORIDAD[p] || '') + '">' + esc(p === 'Normal' ? 'Media' : p) + '</span>' : ''; }
 
 function tarjeta(s, opciones) {
   const o = opciones || {};
@@ -186,7 +188,8 @@ const RUTAS = [
   [/^#\/mis-reportes$/, vistaMisReportes],
   [/^#\/administrar(?:\/([a-z-]+))?$/, vistaAdministrar],
   [/^#\/solicitud\/(.+)$/, vistaDetalle],
-  [/^#\/notificaciones$/, vistaNotificaciones]
+  [/^#\/notificaciones$/, vistaNotificaciones],
+  [/^#\/dashboard(?:\/([a-z]+))?$/, vistaDashboard]
 ];
 
 const PILA = []; // pantallas visitadas, para el botón Atrás
@@ -282,13 +285,19 @@ async function vistaInicio() {
     else detalle = (c.activas || 0) + ' actividades por hacer';
     html += '<a class="opcion" href="#/administrar"><div class="opcion-icono i-administrar">' + ICONO_ADMIN + '</div>' +
       '<div><div class="opcion-titulo">Administrar actividades</div><div class="opcion-texto">' +
-      esc(esLider() ? 'Asigna y sigue las actividades de ' + (u.rol === 'Coordinador' ? 'los tres módulos' : u.modulo) + '.' : 'Tus actividades asignadas: inícialas y termínalas con evidencia.') +
+      esc(esLider() ? 'Asigna y sigue las actividades de ' + (esAdmin() ? 'los tres módulos' : u.modulo) + '.' : 'Tus actividades asignadas: inícialas y termínalas con evidencia.') +
       '</div><span class="insignia ' + ((c.pendientes || c.activas || c.porConfirmar) ? '' : 'insignia-gris') + '">' + esc(detalle) + '</span></div></a>';
+  }
+  if (esAdmin()) {
+    html += '<a class="opcion" href="#/dashboard"><div class="opcion-icono i-dashboard">' + ICONO_DASHBOARD + '</div>' +
+      '<div><div class="opcion-titulo">Dashboard</div><div class="opcion-texto">Efectividad de cada módulo y reportes por área, servicio y persona.</div></div></a>';
   }
   html += '</div>';
   pintar(html);
   conectarAvisoPush();
 }
+
+const ICONO_DASHBOARD = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
 const ICONO_REPORTAR = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M9 4h6l1 2h3v14H5V6h3l1-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v6M9 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const ICONO_ADMIN = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
@@ -326,7 +335,7 @@ async function vistaReportar() {
     '<label>Ubicación exacta<input name="ubicacion" required maxlength="120" placeholder="Ej: Habitación 304"></label></div>' +
     '<label>Descripción<textarea name="descripcion" rows="4" required maxlength="1500" placeholder="¿Qué pasa? Sea lo más claro posible."></textarea></label>' +
     '<div class="campo"><span class="etiqueta">Prioridad</span><div class="prioridades">' +
-    cfg.prioridades.map((p) => '<label class="prio-op"><input type="radio" name="prioridad" value="' + esc(p) + '"' + (p === 'Normal' ? ' checked' : '') + '><span>' + esc(p === 'Urgente' ? 'Urgente (afecta pacientes)' : p) + '</span></label>').join('') +
+    cfg.prioridades.map((p) => '<label class="prio-op ' + (CLASE_PRIORIDAD[p] || '') + '"><input type="radio" name="prioridad" value="' + esc(p) + '"' + (p === 'Media' || p === 'Normal' ? ' checked' : '') + '><span>' + esc(p === 'Urgente' ? 'Urgente (afecta pacientes)' : p) + '</span></label>').join('') +
     '</div></div>' +
     '<label>Nombre de quien reporta<input name="reportadoPor" required maxlength="80" value="' + esc(leer('ultimoNombre') || '') + '" placeholder="Su nombre"></label>' +
     campoFoto('foto', 'Foto (opcional)') +
@@ -412,7 +421,7 @@ async function vistaAdministrar(pestana) {
       (otras.map((s) => tarjeta(s)).join('') || vacio('Aún no ha terminado actividades.'))));
     return;
   }
-  const esCoord = u.rol === 'Coordinador';
+  const esCoord = esAdmin();
   const [lista, mias] = await Promise.all([
     api('panelModulo', { modulo: E.filtroModulo }),
     u.rol === 'Líder' ? api('misActividades') : Promise.resolve([])
@@ -612,6 +621,111 @@ function comprimirImagen(archivo) {
     img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('No se pudo leer la foto')); };
     img.src = url;
   });
+}
+
+// ------------------------------ dashboard ------------------------------
+const PERIODOS = [['hoy', 'Hoy'], ['semana', 'Esta semana'], ['mes', 'Este mes'], ['todo', 'Todo']];
+
+function duracion(h) {
+  if (h === null || h === undefined) return '—';
+  if (h < 1) return Math.round(h * 60) + ' min';
+  if (h < 48) return (Math.round(h * 10) / 10).toString().replace('.', ',') + ' h';
+  return Math.round(h / 24) + ' días';
+}
+function porc(n) { return (n === null || n === undefined) ? '—' : String(n).replace('.', ',') + '%'; }
+
+/** Barras horizontales: una fila por elemento, ancho proporcional al mayor. */
+function barras(lista, opciones) {
+  const o = opciones || {};
+  if (!lista.length) return vacio(o.vacio || 'Sin datos en este periodo.');
+  const max = Math.max(1, ...lista.map((x) => x.total));
+  return '<div class="barras">' + lista.map((x) =>
+    '<div class="barra-fila" title="' + esc(x.nombre + ': ' + x.total + ' reportes (' + porc(x.pct) + ')') + '">' +
+    '<div class="barra-nombre">' + esc(x.nombre) + (o.conArea && x.area ? '<span class="barra-sub">' + esc(x.area) + '</span>' : '') + '</div>' +
+    '<div class="barra-pista"><div class="barra-relleno" style="width:' + (x.total ? Math.max(2, x.total * 100 / max) : 0) + '%"></div></div>' +
+    '<div class="barra-valor">' + x.total + ' <span>' + porc(x.pct) + '</span></div></div>').join('') + '</div>';
+}
+
+function columnas(serie, periodo) {
+  if (!serie.length) return vacio('Sin reportes en este periodo.');
+  const max = Math.max(1, ...serie.map((x) => x.total));
+  const etiqueta = (e) => periodo === 'hoy' ? e.slice(0, 2) : periodo === 'todo' ? e.slice(5) + '/' + e.slice(2, 4) : e.slice(8);
+  const cada = serie.length > 16 ? Math.ceil(serie.length / 8) : 1;
+  return '<div class="columnas">' + serie.map((x, i) =>
+    '<div class="col" title="' + esc(x.etiqueta + ': ' + x.total + ' reportes') + '">' +
+    '<div class="col-valor">' + (x.total ? x.total : '') + '</div>' +
+    '<div class="col-barra" style="height:' + (x.total ? Math.max(3, x.total * 100 / max) : 0) + '%"></div>' +
+    '<div class="col-etq">' + (i % cada === 0 ? esc(etiqueta(x.etiqueta)) : '') + '</div></div>').join('') + '</div>';
+}
+
+async function vistaDashboard(periodo) {
+  if (!esAdmin()) { location.replace('#/'); return; }
+  const p = PERIODOS.some((x) => x[0] === periodo) ? periodo : 'mes';
+  ponerBarra('Dashboard', true);
+  cargando();
+  const d = await api('dashboard', { periodo: p });
+  const g = d.general;
+  const unidad = p === 'hoy' ? 'por hora' : p === 'todo' ? 'por mes' : 'por día';
+  const conReportes = d.areas.filter((a) => a.total > 0);
+  const menos = d.areas.slice().sort((a, b) => a.total - b.total || a.nombre.localeCompare(b.nombre)).slice(0, 5);
+  const personasMenos = d.personas.slice().sort((a, b) => a.total - b.total || a.nombre.localeCompare(b.nombre)).slice(0, 5);
+  let html = '<nav class="pestanas">' + PERIODOS.map(([id, t]) =>
+    '<a href="#/dashboard/' + id + '" class="' + (id === p ? 'activa' : '') + '">' + t + '</a>').join('') + '</nav>';
+  html += '<p class="suave pequeno rango">' + (d.desde ? 'Reportes del ' + esc(fechaDia(d.desde)) + ' al ' + esc(fechaDia(d.hasta)) : 'Todos los reportes registrados') + '</p>';
+
+  html += '<section class="kpis">' +
+    kpi('Reportes', d.total, '') +
+    kpi('Efectividad', porc(g.efectividad), 'cerradas de las no canceladas') +
+    kpi('En trámite', g.enTramite, g.porConfirmar ? g.porConfirmar + ' por confirmar' : '') +
+    kpi('Tiempo de cierre', duracion(g.horasPromedio), 'promedio') + '</section>';
+
+  html += '<h3 class="subtitulo">Efectividad por módulo</h3><div class="modulos-dash">' + d.modulos.map((m) =>
+    '<div class="tarjeta-dash"><div class="dash-modulo">' + esc(m.modulo) + '</div>' +
+    '<div class="dash-grande">' + porc(m.efectividad) + '</div>' +
+    '<div class="progreso" title="' + esc(m.cerradas + ' cerradas de ' + (m.total - m.canceladas)) + '"><div style="width:' + (m.efectividad || 0) + '%"></div></div>' +
+    '<div class="dash-detalle">' + m.cerradas + ' cerradas de ' + (m.total - m.canceladas) + ' · ' + m.enTramite + ' en trámite<br>' +
+    'Cierre promedio: ' + duracion(m.horasPromedio) + (m.devueltas ? ' · ' + m.devueltas + ' devueltas al técnico' : '') +
+    (m.canceladas ? ' · ' + m.canceladas + ' canceladas' : '') + '</div></div>').join('') + '</div>';
+
+  html += '<h3 class="subtitulo">Reportes ' + unidad + '</h3><div class="tarjeta-dash">' + columnas(d.serie, p) + '</div>';
+
+  html += '<h3 class="subtitulo">Porcentaje de reportes por área</h3><div class="tarjeta-dash">' +
+    barras(conReportes.slice(0, 10), { vacio: 'Ningún área ha reportado en este periodo.' }) +
+    (conReportes.length > 10 ? '<details><summary>Ver todas las áreas (' + conReportes.length + ')</summary>' + barras(conReportes.slice(10)) + '</details>' : '') + '</div>';
+
+  html += '<div class="dos-col">' +
+    '<div><h3 class="subtitulo">Áreas que más reportan</h3><div class="tarjeta-dash">' + ranking(conReportes.slice(0, 5)) + '</div></div>' +
+    '<div><h3 class="subtitulo">Áreas que menos reportan</h3><div class="tarjeta-dash">' + ranking(menos) + '</div></div></div>';
+
+  html += '<div class="dos-col">' +
+    '<div><h3 class="subtitulo">Personas que más reportan</h3><div class="tarjeta-dash">' + ranking(d.personas.slice(0, 5), true) + '</div></div>' +
+    '<div><h3 class="subtitulo">Personas que menos reportan</h3><div class="tarjeta-dash">' + ranking(personasMenos, true) + '</div></div></div>' +
+    '<p class="suave pequeno">Se cuentan por el nombre que escriben al reportar. Quien no ha reportado nada en el periodo no aparece.</p>';
+
+  html += '<h3 class="subtitulo">Servicios con más reportes</h3><div class="tarjeta-dash">' + barras(d.servicios.slice(0, 10), { vacio: 'Sin servicios registrados en este periodo.' }) + '</div>';
+
+  html += '<h3 class="subtitulo">Reportes por prioridad</h3><div class="prioridades-dash">' + d.prioridades.map((x) =>
+    '<div class="prio-dash"><span class="chip ' + (CLASE_PRIORIDAD[x.nombre] || '') + '">' + esc(x.nombre) + '</span>' +
+    '<strong>' + x.total + '</strong><span class="suave">' + porc(x.pct) + '</span></div>').join('') + '</div>';
+
+  html += '<p class="suave pequeno">Efectividad = solicitudes cerradas por el líder ÷ solicitudes del periodo que no fueron canceladas. ' +
+    'Tiempo de cierre = desde que se reporta hasta que el líder la cierra.</p>';
+  pintar(html);
+}
+
+function kpi(titulo, valor, nota) {
+  return '<div class="kpi"><div class="kpi-titulo">' + esc(titulo) + '</div><div class="kpi-valor">' + esc(valor) + '</div>' +
+    (nota ? '<div class="kpi-nota">' + esc(nota) + '</div>' : '') + '</div>';
+}
+function ranking(lista, conArea) {
+  if (!lista.length) return vacio('Sin datos en este periodo.');
+  return '<ol class="ranking">' + lista.map((x) => '<li><span class="rk-nombre">' + esc(x.nombre) +
+    (conArea && x.area ? '<span class="barra-sub">' + esc(x.area) + '</span>' : '') + '</span>' +
+    '<span class="rk-valor">' + x.total + ' <span>' + porc(x.pct) + '</span></span></li>').join('') + '</ol>';
+}
+function fechaDia(k) {
+  const d = new Date(k + 'T12:00:00');
+  return isNaN(d) ? k : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // ---------------------------- notificaciones ----------------------------
