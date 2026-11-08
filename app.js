@@ -372,10 +372,10 @@ async function vistaReportar() {
   if (!E.config || !E.config.torres) await refrescarResumen();
   const cfg = E.config;
   const opcionesAreas = (esLider() || esAdmin()) ?
-    '<fieldset class="caja-lider"><legend>Registrar a nombre de un área (reportes por WhatsApp o llamada)</legend>' +
+    '<fieldset class="caja-lider"><legend>Reportar a nombre de un área (opcional)</legend>' +
     '<label>Área<select name="cuentaArea"><option value="">— No, lo reporto yo —</option>' +
     cfg.areas.map((a) => '<option value="' + esc(a.usuario) + '">' + esc(a.nombre) + '</option>').join('') + '</select></label>' +
-    '<label>Recibido por<select name="origen"><option>WhatsApp</option><option>Llamada</option></select></label></fieldset>' : '';
+    '</fieldset>' : '';
   pintar(pestanasReportar('nuevo') +
     '<form id="form-reporte" class="formulario" novalidate>' +
     opcionesAreas +
@@ -434,7 +434,7 @@ async function vistaReportar() {
     if (!datos.descripcion.trim()) faltan.push('la descripción');
     if (!datos.reportadoPor.trim()) faltan.push('su nombre');
     if (faltan.length) { mostrarError('Falta: ' + faltan.join(', ')); return; }
-    if (f.cuentaArea && f.cuentaArea.value) { datos.cuentaArea = f.cuentaArea.value; datos.origen = f.origen.value; }
+    if (f.cuentaArea && f.cuentaArea.value) { datos.cuentaArea = f.cuentaArea.value; datos.origen = 'App'; }
     await conBoton($('button[type=submit]', f), 'Enviando…', async () => {
       try {
         datos.foto = await fotoDe(f, 'foto');
@@ -534,7 +534,7 @@ async function vistaDetalle(id) {
     dato('Área', s.area) + dato('Reportado por', s.reportadoPor) +
     (s.torre ? dato('Torre', s.torre) : '') + (s.servicio ? dato('Servicio', s.servicio) : '') +
     dato('Ubicación', 'Piso ' + s.piso + ' · ' + s.ubicacion) +
-    dato('Fecha', fechaCorta(s.fecha)) + (s.origen && s.origen !== 'App' ? dato('Recibido por', s.origen) : '') +
+    dato('Fecha', fechaCorta(s.fecha)) + 
     (s.tecnicoNombre ? dato('Atiende', s.tecnicoNombre) : '') + '</dl>' +
     '<h3 class="subtitulo">Descripción</h3><p class="texto-largo">' + esc(s.descripcion) + '</p>' +
     (s.foto ? '<a href="' + esc(s.foto) + '" target="_blank" rel="noopener"><img class="foto" src="' + esc(s.foto) + '" alt="Foto del reporte" loading="lazy" referrerpolicy="no-referrer"></a>' : '');
