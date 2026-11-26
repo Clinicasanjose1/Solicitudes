@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var DESDE = [11, 25];  // 25 de noviembre
-  var HASTA = [1, 6];    // 6 de enero (Reyes)
+  var HASTA = [1, 1];    // 1 de enero
   var DURACION = 5300;   // milisegundos
 
   var q = location.search;
