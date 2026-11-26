@@ -207,7 +207,9 @@ function conectarAvatar() {
     const caja = inp.closest('.avatar');
     caja.classList.add('subiendo');
     try {
-      const foto = await recortarCuadrado(f, 480);
+      // Foto pequeña (240 px) para guardarla directamente en la hoja
+      let foto = await recortarCuadrado(f, 240, 0.82);
+      if (foto.length > 45000) foto = await recortarCuadrado(f, 200, 0.7);
       const r = await api('subirFotoPerfil', { foto });
       E.usuario.foto = r.foto; guardar('usuario', E.usuario);
       cerrarModal();
@@ -223,14 +225,14 @@ function conectarAvatar() {
   }));
 }
 /** Recorta la foto al centro en cuadrado y la reduce para que suba rápido. */
-function recortarCuadrado(archivo, lado) {
+function recortarCuadrado(archivo, lado, calidad) {
   return new Promise((resolver, rechazar) => {
     const img = new Image(); const url = URL.createObjectURL(archivo);
     img.onload = () => {
       const m = Math.min(img.width, img.height);
       const c = document.createElement('canvas'); c.width = lado; c.height = lado;
       c.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado);
-      URL.revokeObjectURL(url); resolver(c.toDataURL('image/jpeg', 0.8));
+      URL.revokeObjectURL(url); resolver(c.toDataURL('image/jpeg', calidad || 0.8));
     };
     img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('No se pudo abrir esa foto' + (/heic|heif/i.test(archivo.type + archivo.name) ? ' (formato HEIC del iPhone)' : '') + '. Pruebe con otra foto o con una captura de pantalla.')); };
     img.src = url;
