@@ -341,3 +341,10 @@ body.en-inicio .aviso ~ .opciones { margin-top: 0; }
 @media (min-width: 760px) { .hero { border-radius: 0 0 36px 36px; } .hero-interior { padding: 30px 24px 72px; } .hero-cruz { right: 6vw; width: 190px; } }
 
 .hero h2.nombre-largo { font-size: 24px; line-height: 1.2; }
+
+/* Descarga en PDF */
+.btn-pdf { margin: 0 0 12px; }
+.atajos-fecha { display: flex; gap: 6px; flex-wrap: wrap; }
+.atajos-fecha button { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 8px; border: 1.5px solid var(--borde); background: var(--blanco); cursor: pointer; }
+.atajos-fecha button.activo { border-color: var(--azul); color: var(--azul); background: var(--azul-claro); }
+.fila-fechas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

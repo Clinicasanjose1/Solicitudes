@@ -511,8 +511,10 @@ async function vistaAdministrar(pestana) {
     'por-confirmar': 'No hay actividades terminadas esperando su confirmación.', 'historial': 'El historial está vacío.',
     'mias': 'No tiene actividades asignadas.'
   };
+  if (p === 'historial') html += botonPdf();
   html += grupos[p].map((s) => tarjeta(s)).join('') || vacio(textosVacios[p]);
   pintar(html);
+  conectarBotonPdf();
   $$('.filtro').forEach((b) => b.addEventListener('click', () => { E.filtroModulo = b.dataset.modulo; vistaAdministrar(p); }));
 }
 
@@ -730,6 +732,7 @@ async function vistaDashboard(periodo) {
     '<a href="#/dashboard/' + id + '" class="' + (id === p ? 'activa' : '') + '">' + t + '</a>').join('') + '</nav>';
   html += '<p class="suave pequeno rango">' + (d.desde ? 'Reportes del ' + esc(fechaDia(d.desde)) + ' al ' + esc(fechaDia(d.hasta)) : 'Todos los reportes registrados') + '</p>';
 
+  html += botonPdf();
   html += '<section class="kpis">' +
     kpi('Reportes', d.total, '') +
     kpi('Efectividad', porc(g.efectividad), 'cerradas de las no canceladas') +
@@ -768,6 +771,7 @@ async function vistaDashboard(periodo) {
   html += '<p class="suave pequeno">Efectividad = solicitudes cerradas por el líder ÷ solicitudes del periodo que no fueron canceladas. ' +
     'Tiempo de cierre = desde que se reporta hasta que el líder la cierra.</p>';
   pintar(html);
+  conectarBotonPdf();
 }
 
 function kpi(titulo, valor, nota) {
@@ -783,6 +787,161 @@ function ranking(lista, conArea) {
 function fechaDia(k) {
   const d = new Date(k + 'T12:00:00');
   return isNaN(d) ? k : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ------------------------- PDF de actividades terminadas -------------------------
+const ICONO_PDF = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5M12 11v6M9.5 14.5 12 17l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function botonPdf() {
+  return '<button type="button" class="btn btn-sec btn-ancho btn-pdf" id="btn-pdf">' + ICONO_PDF + 'Descargar PDF de actividades terminadas</button>';
+}
+function conectarBotonPdf() { const b = $('#btn-pdf'); if (b) b.addEventListener('click', abrirDescargaPdf); }
+
+function diaLocal(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+
+function abrirDescargaPdf() {
+  const hoy = new Date();
+  const rangos = {
+    'este-mes': [diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), diaLocal(hoy)],
+    'mes-anterior': [diaLocal(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)), diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 0))],
+    'este-ano': [diaLocal(new Date(hoy.getFullYear(), 0, 1)), diaLocal(hoy)]
+  };
+  const m = abrirModal('<h3>Descargar actividades terminadas</h3>' +
+    '<p class="suave">El PDF incluye las solicitudes cerradas (confirmadas por el líder) según su fecha de cierre.</p>' +
+    (esAdmin() ? '<label>Módulo<select id="pdf-modulo"><option value="Todos">Todos los módulos</option>' +
+      E.config.modulos.map((x) => '<option>' + esc(x) + '</option>').join('') + '</select></label>' :
+      '<p>Módulo: <strong>' + esc(E.usuario.modulo) + '</strong></p>') +
+    '<div class="atajos-fecha"><button type="button" data-r="este-mes" class="activo">Este mes</button><button type="button" data-r="mes-anterior">Mes anterior</button><button type="button" data-r="este-ano">Este año</button></div>' +
+    '<div class="fila-fechas"><label>Desde<input type="date" id="pdf-desde" value="' + rangos['este-mes'][0] + '"></label>' +
+    '<label>Hasta<input type="date" id="pdf-hasta" value="' + rangos['este-mes'][1] + '"></label></div>' +
+    '<div class="modal-botones"><button type="button" class="btn btn-sec" id="modal-no">Cancelar</button>' +
+    '<button type="button" class="btn btn-pri" id="pdf-generar">Descargar PDF</button></div>');
+  $('#modal-no', m).addEventListener('click', cerrarModal);
+  $$('.atajos-fecha button', m).forEach((b) => b.addEventListener('click', () => {
+    $$('.atajos-fecha button', m).forEach((x) => x.classList.toggle('activo', x === b));
+    $('#pdf-desde', m).value = rangos[b.dataset.r][0]; $('#pdf-hasta', m).value = rangos[b.dataset.r][1];
+  }));
+  const gen = $('#pdf-generar', m);
+  gen.addEventListener('click', () => conBoton(gen, 'Generando…', async () => {
+    try {
+      const desde = $('#pdf-desde', m).value, hasta = $('#pdf-hasta', m).value;
+      if (!desde || !hasta) throw new Error('Elija las dos fechas');
+      const datos = await api('terminadas', { desde, hasta, modulo: esAdmin() ? $('#pdf-modulo', m).value : '' });
+      if (!datos.lista.length) throw new Error('No hay actividades terminadas en ese rango de fechas.');
+      const bytes = await construirPdfTerminadas(datos);
+      const nombre = ('actividades-terminadas_' + datos.modulo + '_' + datos.desde + '_a_' + datos.hasta)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_.-]+/g, '-').toLowerCase() + '.pdf';
+      descargarArchivo(bytes, nombre);
+      cerrarModal();
+      toast('PDF descargado: ' + datos.lista.length + ' actividades');
+    } catch (e) { mostrarError(e.message); }
+  }));
+}
+
+function descargarArchivo(bytes, nombre) {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function fechaPdf(iso, conHora, corto) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p2 = (n) => String(n).padStart(2, '0');
+  return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + (corto ? String(d.getFullYear()).slice(2) : d.getFullYear()) + (conHora ? ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) : '');
+}
+function fechaCorta2(k) { const [a, m, d] = k.split('-'); return d + '/' + m + '/' + a; }
+
+const COLOR_PRIORIDAD_PDF = { Urgente: [192, 57, 43], Alta: [214, 110, 20], Media: [150, 115, 0], Baja: [47, 116, 208] };
+
+async function construirPdfTerminadas(datos) {
+  const { PDFSimple } = await import('./pdf.js');
+  const AZUL = [0, 51, 90], GRIS = [93, 107, 114], TEXTO = [29, 42, 48];
+  const pdf = new PDFSimple(842, 595); // A4 horizontal
+  const M = 28, ANCHO = 842 - 2 * M, PIE = 560;
+  let logo = null;
+  try { logo = pdf.agregarImagen(new Uint8Array(await (await fetch('logo-pdf.jpg')).arrayBuffer()), 160, 160); } catch (e) { /* sin logo */ }
+
+  const lista = datos.lista;
+  const horas = lista.map((x) => x.horas).filter((h) => h !== null);
+  const promedio = horas.length ? horas.reduce((a, b) => a + b, 0) / horas.length : null;
+  const rango = 'Cerradas del ' + fechaCorta2(datos.desde) + ' al ' + fechaCorta2(datos.hasta);
+  const moduloTxt = datos.modulo === 'Todos' ? 'Todos los módulos' : datos.modulo;
+
+  const columnas = [
+    { t: 'ID', w: 46 }, { t: 'Fechas', w: 82 }, { t: 'Área / reportó', w: 92 }, { t: 'Ubicación', w: 98 },
+    { t: 'Módulo / tipo', w: 92 }, { t: 'Prioridad', w: 44 }, { t: 'Descripción', w: 124 }, { t: 'Trabajo realizado', w: 132 }, { t: 'Técnico', w: 76 }
+  ];
+  const TAM = 7.6, LH = 9.4, PAD = 4;
+
+  const celdas = (x) => [
+    x.id,
+    'Rep.: ' + fechaPdf(x.fechaReporte, true, true) + '\nCerr.: ' + fechaPdf(x.fechaCierre, true, true) + '\nTiempo: ' + duracion(x.horas),
+    x.area + (x.reportadoPor ? '\n' + x.reportadoPor : ''),
+    (x.torre ? x.torre.split(',')[0] + (x.servicio ? ' · ' + x.servicio : '') + '\n' : (x.servicio ? x.servicio + '\n' : '')) + 'Piso ' + x.piso + ' · ' + x.ubicacion,
+    x.modulo + '\n' + x.tipo,
+    x.prioridad,
+    x.descripcion,
+    (x.trabajo || '') + (x.comentario ? '\nComentario del líder: ' + x.comentario : ''),
+    x.tecnico
+  ];
+
+  function encabezadoTabla(y) {
+    pdf.rect(M, y, ANCHO, 20, AZUL);
+    let cx = M;
+    columnas.forEach((c) => { pdf.texto(cx + PAD, y + 13.5, c.t, 8, { negrita: true, color: [255, 255, 255] }); cx += c.w; });
+    return y + 20;
+  }
+  function nuevaPagina(primera) {
+    pdf.nuevaPagina();
+    if (primera) {
+      if (logo) pdf.imagen(logo, M, 22, 46, 46);
+      pdf.texto(M + 58, 42, 'Actividades terminadas', 19, { negrita: true, color: AZUL });
+      pdf.texto(M + 58, 60, (CFG.NOMBRE_CLINICA || 'Clínica San José de Cúcuta') + '  ·  ' + moduloTxt, 10, { color: GRIS });
+      pdf.texto(M + ANCHO, 42, rango, 10.5, { negrita: true, color: TEXTO, alinear: 'derecha' });
+      pdf.texto(M + ANCHO, 60, 'Generado el ' + fechaPdf(new Date().toISOString(), true) + ' por ' + (datos.generadoPor || ''), 8.5, { color: GRIS, alinear: 'derecha' });
+      pdf.linea(M, 78, M + ANCHO, 78, AZUL, 1.2);
+      let resumen = 'Total: ' + lista.length + ' actividades terminadas   ·   Tiempo promedio de cierre: ' + duracion(promedio);
+      if (datos.modulo === 'Todos') {
+        resumen += '   ·   ' + E.config.modulos.map((m) => m + ': ' + lista.filter((x) => x.modulo === m).length).join('   ·   ');
+      }
+      pdf.texto(M, 96, resumen, 9, { negrita: true, color: TEXTO });
+      return encabezadoTabla(106);
+    }
+    if (logo) pdf.imagen(logo, M, 16, 24, 24);
+    pdf.texto(M + 32, 32, 'Actividades terminadas  ·  ' + moduloTxt + '  ·  ' + rango, 9, { negrita: true, color: AZUL });
+    return encabezadoTabla(48);
+  }
+
+  let y = nuevaPagina(true);
+  lista.forEach((x, i) => {
+    const textos = celdas(x);
+    let lineas = textos.map((t, j) => pdf.partir(t, columnas[j].w - 2 * PAD, TAM, j === 0 || j === 5));
+    const maxLineas = Math.floor((PIE - 70 - 2 * PAD) / LH);
+    lineas = lineas.map((l) => l.length > maxLineas ? l.slice(0, maxLineas - 1).concat(['(continúa en la hoja de cálculo)']) : l);
+    const alto = Math.max(...lineas.map((l) => l.length)) * LH + 2 * PAD;
+    if (y + alto > PIE) y = nuevaPagina(false);
+    if (i % 2 === 1) pdf.rect(M, y, ANCHO, alto, [242, 246, 250]);
+    let cx = M;
+    lineas.forEach((ls, j) => {
+      const opc = { negrita: j === 0 || j === 5, color: j === 5 ? (COLOR_PRIORIDAD_PDF[x.prioridad] || TEXTO) : TEXTO };
+      ls.forEach((l, k) => pdf.texto(cx + PAD, y + PAD + 7 + k * LH, l, TAM, opc));
+      cx += columnas[j].w;
+    });
+    pdf.linea(M, y + alto, M + ANCHO, y + alto, [214, 223, 230], 0.5);
+    y += alto;
+  });
+
+  const total = pdf.paginas.length;
+  pdf.paginas.forEach((pag, i) => {
+    pdf.actual = pag;
+    pdf.texto(M, 578, 'Solicitudes CSJ · ' + (CFG.NOMBRE_CLINICA || ''), 7.5, { color: GRIS });
+    pdf.texto(M + ANCHO, 578, 'Página ' + (i + 1) + ' de ' + total, 7.5, { color: GRIS, alinear: 'derecha' });
+  });
+  return pdf.generar('Actividades terminadas - ' + moduloTxt + ' - ' + rango);
 }
 
 // ---------------------------- notificaciones ----------------------------
