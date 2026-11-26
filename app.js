@@ -4,6 +4,8 @@
  * y recibe notificaciones push con Firebase Cloud Messaging.
  * No es necesario editar este archivo: la configuración va en config.js.
  */
+import { ICO, ILU, iconoTipo } from './diseno.js';
+
 const CFG = self.APP_CONFIG || {};
 const FIREBASE_VERSION = '10.12.2';
 const ESTADOS_ABIERTOS = ['Pendiente', 'Reabierta', 'Asignada', 'En proceso', 'Por confirmar'];
@@ -21,6 +23,7 @@ const E = {
   contadores: {},
   noLeidas: 0,
   filtroModulo: 'Todos',
+  lista: { datos: [], q: '', pagina: 1 },
   instalador: null
 };
 
@@ -139,15 +142,27 @@ function cargando() { $('#app').innerHTML = '<div class="cargando"><span class="
 function chipEstado(e) { return '<span class="chip ' + (CLASE_ESTADO[e] || '') + '">' + esc(e) + '</span>'; }
 function chipPrioridad(p) { return p ? '<span class="chip ' + (CLASE_PRIORIDAD[p] || '') + '">' + esc(p === 'Normal' ? 'Media' : p) + '</span>' : ''; }
 
+const CLASE_PRIO = { Urgente: 'prio-urgente', Alta: 'prio-alta', Media: 'prio-media', Normal: 'prio-media', Baja: 'prio-baja' };
+
+/** Tarjeta de una solicitud (diseño de Administrar actividades). o.asignar: muestra el botón Asignar. */
 function tarjeta(s, opciones) {
   const o = opciones || {};
-  return '<a class="tarjeta" href="#/solicitud/' + encodeURIComponent(s.id) + '">' +
-    '<div class="tarjeta-arriba"><span class="tarjeta-id">' + esc(s.id) + '</span>' + chipPrioridad(s.prioridad) + chipEstado(s.estado) + '</div>' +
-    '<div class="tarjeta-titulo">' + esc(s.tipo) + '</div>' +
-    '<div class="tarjeta-linea">' + esc(o.mostrarArea === false ? s.modulo : s.area + ' · ' + s.modulo) + '</div>' +
-    '<div class="tarjeta-linea">' + (s.servicio ? esc(s.servicio) + ' · ' : '') + 'Piso ' + esc(s.piso) + ' · ' + esc(s.ubicacion) + '</div>' +
-    '<div class="tarjeta-pie"><span>' + esc(hace(s.fecha)) + '</span>' +
-    (s.tecnicoNombre ? '<span>' + esc(s.tecnicoNombre) + '</span>' : '') + '</div></a>';
+  const prio = s.prioridad === 'Normal' ? 'Media' : s.prioridad;
+  const icoPrio = prio === 'Baja' ? ICO.check : prio === 'Media' ? ICO.reloj : ICO.alerta;
+  return '<article class="act ' + (CLASE_PRIO[s.prioridad] || '') + '" data-id="' + esc(s.id) + '">' +
+    '<a class="act-icono" href="#/solicitud/' + encodeURIComponent(s.id) + '" aria-label="Ver ' + esc(s.id) + '">' + iconoTipo(s.tipo) + '</a>' +
+    '<a class="act-info" href="#/solicitud/' + encodeURIComponent(s.id) + '">' +
+    '<span class="act-id">' + esc(s.id) + '</span>' +
+    '<h3>' + esc(s.tipo) + '</h3>' +
+    '<span class="act-linea">' + ICO.edificio + esc(o.mostrarArea === false ? s.modulo : s.area + ' · ' + s.modulo) + '</span>' +
+    '<span class="act-linea">' + ICO.pin + (s.servicio ? esc(s.servicio) + ' · ' : '') + 'Piso ' + esc(s.piso) + ' · ' + esc(s.ubicacion) + '</span>' +
+    '<span class="act-linea">' + ICO.calendario + esc(hace(s.fecha)) + (s.tecnicoNombre ? ' · ' + esc(s.tecnicoNombre) : '') + '</span>' +
+    '</a>' +
+    '<div class="act-estado"><span class="badge-prio">' + icoPrio + esc(prio) + '</span>' +
+    '<span class="badge-estado ' + (CLASE_ESTADO[s.estado] || '') + '">' + ICO.reloj + esc(s.estado) + '</span></div>' +
+    '<div class="act-botones"><a class="btn btn-borde" href="#/solicitud/' + encodeURIComponent(s.id) + '">' + ICO.ojo + 'Ver detalles</a>' +
+    (o.asignar ? '<button type="button" class="btn btn-pri btn-asignar" data-id="' + esc(s.id) + '">' + ICO.asignar + 'Asignar</button>' : '') +
+    '</div></article>';
 }
 
 function vacio(texto) { return '<div class="vacio">' + esc(texto) + '</div>'; }
@@ -164,10 +179,89 @@ function ponerBarra(titulo, conAtras) {
   $('#btn-atras').hidden = !conAtras;
 }
 
+function cargoDe(u) {
+  if (!u) return '';
+  if (u.rol === 'Área') return 'Cuenta de ' + u.nombre;
+  if (esAdmin()) return 'Administración';
+  return u.rol + ' de ' + u.modulo;
+}
+function iniciales(u) {
+  const n = nombreSaludo(u) || (u && u.nombre) || '';
+  return n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p.charAt(0)).join('').toUpperCase() || '?';
+}
+/** Foto de perfil (o iniciales). editable: muestra el botón de cámara para cambiarla. */
+function avatar(u, tam, editable) {
+  const cont = '<span>' + esc(iniciales(u)) + '</span>' + (u && u.foto ? '<img src="' + esc(u.foto) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
+  return '<div class="avatar avatar-' + tam + '">' + cont +
+    (editable ? '<label class="avatar-camara" title="Cambiar foto de perfil"><input type="file" accept="image/*" class="input-avatar" hidden>' + ICO.camara + '</label>' : '') + '</div>';
+}
+function conectarAvatar() {
+  $$('.input-avatar').forEach((inp) => inp.addEventListener('change', async () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    const caja = inp.closest('.avatar');
+    caja.classList.add('subiendo');
+    try {
+      const foto = await recortarCuadrado(f, 480);
+      const r = await api('subirFotoPerfil', { foto });
+      E.usuario.foto = r.foto; guardar('usuario', E.usuario);
+      cerrarModal();
+      toast('Foto de perfil actualizada');
+      pintarLateral();
+      if ((location.hash || '#/') === '#/' || location.hash === '') vistaInicio(); else caja.classList.remove('subiendo');
+    } catch (e) { caja.classList.remove('subiendo'); mostrarError(e.message); }
+  }));
+}
+/** Recorta la foto al centro en cuadrado y la reduce para que suba rápido. */
+function recortarCuadrado(archivo, lado) {
+  return new Promise((resolver, rechazar) => {
+    const img = new Image(); const url = URL.createObjectURL(archivo);
+    img.onload = () => {
+      const m = Math.min(img.width, img.height);
+      const c = document.createElement('canvas'); c.width = lado; c.height = lado;
+      c.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado);
+      URL.revokeObjectURL(url); resolver(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('No se pudo leer la foto')); };
+    img.src = url;
+  });
+}
+
+function menuPorRol() {
+  const u = E.usuario;
+  const items = [['#/', 'Inicio', ICO.inicio]];
+  if (u.rol === 'Área') items.push(['#/reportar', 'Reportar', ICO.reportar], ['#/mis-reportes', 'Mis reportes', ICO.lista]);
+  else if (esAdmin()) items.push(['#/dashboard', 'Historial', ICO.historial], ['#/reportar', 'Reportar', ICO.reportar]);
+  else items.push(['#/administrar', esLider() ? 'Actividades' : 'Mis actividades', ICO.actividades], ['#/reportar', 'Reportar', ICO.reportar]);
+  items.push(['#/notificaciones', 'Notificaciones', ICO.campana]);
+  return items;
+}
+/** Menú lateral azul (se ve en computador y tableta). */
+function pintarLateral() {
+  const l = $('#lateral');
+  if (!E.token || !E.usuario || document.body.classList.contains('en-login')) {
+    l.hidden = true; document.body.classList.remove('con-lateral'); return;
+  }
+  l.hidden = false; document.body.classList.add('con-lateral');
+  const h = location.hash || '#/';
+  const items = menuPorRol();
+  const activo = (href) => href === '#/' ? (h === '#/' || h === '#') :
+    (h.indexOf(href) === 0 || (href === '#/reportar' && h === '#/mis-reportes' && !items.some((x) => x[0] === '#/mis-reportes')));
+  l.innerHTML = '<a class="lat-marca" href="#/"><img src="icon-192.png" alt=""><span>Clínica<br>San José</span></a>' +
+    '<nav class="lat-nav">' + items.map(([href, t, ico]) => '<a href="' + href + '" class="' + (activo(href) ? 'activo' : '') + '">' + ico +
+      '<span>' + t + '</span>' + (href === '#/notificaciones' && E.noLeidas ? '<b class="lat-cont">' + (E.noLeidas > 99 ? '99+' : E.noLeidas) + '</b>' : '') + '</a>').join('') + '</nav>' +
+    '<div class="lat-pie"><button type="button" class="lat-usuario" id="lat-usuario">' + avatar(E.usuario, 's', false) +
+    '<span class="lat-nombre">' + esc(nombreSaludo(E.usuario) || E.usuario.nombre) + '<small>' + esc(cargoDe(E.usuario)) + '</small></span>' + ICO.chevron + '</button>' +
+    '<div class="credito">Creado por: David Vega y Jaider Landinez</div></div>';
+  $('#lat-usuario').addEventListener('click', abrirCuenta);
+}
+
 function actualizarContador() {
   const c = $('#contador-notif');
   c.textContent = E.noLeidas > 99 ? '99+' : String(E.noLeidas);
   c.hidden = !E.noLeidas;
+  const lc = $('#lateral .lat-cont');
+  if (lc || E.noLeidas) pintarLateral();
 }
 
 async function refrescarResumen() {
@@ -196,7 +290,7 @@ const PILA = []; // pantallas visitadas, para el botón Atrás
 
 async function enrutar() {
   cerrarModal();
-  document.body.classList.remove('en-login', 'en-inicio');
+  document.body.classList.remove('en-login', 'en-inicio', 'en-pagina');
   const h = location.hash || '#/';
   if (PILA[PILA.length - 1] !== h) {
     if (PILA[PILA.length - 2] === h) PILA.pop(); else PILA.push(h);
@@ -207,6 +301,7 @@ async function enrutar() {
     return;
   }
   if (E.token && h === '#/login') { location.replace('#/'); return; }
+  pintarLateral();
   for (const [patron, vista] of RUTAS) {
     const m = h.match(patron);
     if (m) {
@@ -251,6 +346,7 @@ async function vistaLogin() {
     '</form>' +
     '<div class="login-divisor info"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#00436e" stroke-width="1.6"/><path d="M12 11v6M12 7.5v.5" stroke="#00436e" stroke-width="2" stroke-linecap="round"/></svg></div>' +
     '<p class="login-ayuda">¿No tiene usuario? Pídalo al líder de Mantenimiento e Infraestructura, Sistemas o Equipos Biomédicos.</p>' +
+    '<p class="credito credito-login">Creado por: David Vega y Jaider Landinez</p>' +
     '</div>');
   const verPin = $('.ver-pin');
   verPin.addEventListener('click', () => {
@@ -299,25 +395,59 @@ function nombreSaludo(u) {
   return n.replace(/\s+/g, ' ');
 }
 
+function textoNotif() {
+  const st = estadoPush();
+  const t = {
+    activo: ['Notificaciones activas', 'Recibes alertas en tiempo real cuando una actividad es asignada o cambia de estado.', 'Gestionar notificaciones'],
+    inactivo: ['Activar notificaciones', 'Recibe alertas en tiempo real cuando una actividad sea asignada o se actualice su estado.', 'Activar notificaciones'],
+    bloqueado: ['Notificaciones bloqueadas', 'Actívelas en los ajustes del navegador (ícono del candado junto a la dirección) y vuelva a intentar.', 'Gestionar notificaciones'],
+    'ios-instalar': ['Instale la app para recibir alertas', 'En Safari toque Compartir y luego "Agregar a inicio". Abra la app desde el ícono e inicie sesión.', 'Ver cómo'],
+    'no-soportado': ['Notificaciones no disponibles', 'Este navegador no admite notificaciones. En Android use Google Chrome.', 'Gestionar notificaciones']
+  }[st];
+  return { st, titulo: t[0], texto: t[1], boton: t[2] };
+}
+
+/** Encabezado del inicio con la foto de la clínica, el saludo y la foto de perfil. */
 function heroInicio(u, c) {
   const nombre = nombreSaludo(u);
-  let cargo;
-  if (u.rol === 'Área') cargo = 'Cuenta de ' + u.nombre;
-  else if (esAdmin()) cargo = 'Administración · ' + (CFG.NOMBRE_CLINICA || 'Clínica');
-  else cargo = u.rol + ' de ' + u.modulo;
   const hoy = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
-  let cifras = [];
-  if (esLider()) cifras = [[c.pendientes, 'Por asignar'], [c.enCurso, 'En curso'], [c.porConfirmar, 'Por confirmar']];
-  else if (esPersonal() && !esAdmin()) cifras = [[c.activas, 'Por hacer'], [c.abiertos, 'Mis reportes en trámite']];
-  else cifras = [[c.abiertos, 'Reportes en trámite']];
-  return '<section class="hero">' +
-    '<svg class="hero-cruz" viewBox="0 0 100 100" aria-hidden="true"><path d="M36 6h28v30h30v28H64v30H36V64H6V36h30z" fill="none" stroke="#ffffff" stroke-opacity=".22" stroke-width="3"/></svg>' +
-    '<div class="hero-interior">' +
-    '<div class="hero-fecha">' + esc(hoy.charAt(0).toUpperCase() + hoy.slice(1)) + '</div>' +
-    '<h2 class="' + (nombre.length > 22 ? 'nombre-largo' : '') + '">Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h2>' +
-    '<div class="hero-cargo">' + esc(cargo) + '</div>' +
-    '<div class="hero-cifras">' + cifras.map(([n, t]) => '<div class="hero-cifra"><strong>' + (n || 0) + '</strong><span>' + esc(t) + '</span></div>').join('') + '</div>' +
+  const oscuro = esAdmin();
+  let desc, cifras = [];
+  if (u.rol === 'Área') desc = 'Reporta daños o necesidades y da seguimiento a las solicitudes de tu área.';
+  else if (oscuro) desc = 'Panel de gestión y seguimiento de solicitudes';
+  else if (esLider()) desc = 'Asigna y da seguimiento a las actividades de ' + u.modulo + '.';
+  else desc = 'Gestiona tus actividades y mantente informado sobre las solicitudes de la clínica.';
+  if (esLider()) cifras = [[c.pendientes, 'Por asignar', ICO.actividades, '#/administrar/por-asignar'], [c.enCurso, 'En curso', ICO.reloj, '#/administrar/en-curso'], [c.porConfirmar, 'Por confirmar', ICO.confirmar, '#/administrar/por-confirmar']];
+  else if (esPersonal() && !oscuro) cifras = [[c.activas, 'Por hacer', ICO.actividades, '#/administrar'], [c.abiertos, 'En trámite', ICO.reloj, '#/mis-reportes']];
+  const cifrasHtml = cifras.map(([n, t, ico, href]) => '<a class="cifra" href="' + href + '"><span class="cifra-ico">' + ico + '</span>' +
+    '<span class="cifra-txt"><strong>' + (n || 0) + '</strong>' + esc(t) + '</span><span class="cifra-ir">' + ICO.flecha + '</span></a>').join('');
+  return '<section class="hero2 ' + (oscuro ? 'hero-oscuro' : 'hero-claro') + '">' +
+    '<div class="hero2-foto"></div>' +
+    '<div class="hero2-int">' +
+    '<div class="hero2-texto">' +
+    '<div class="hero2-fecha">' + esc(hoy.charAt(0).toUpperCase() + hoy.slice(1)) + '</div>' +
+    '<div class="hero2-saludo">' + avatar(u, 'xl', true) +
+    '<div><h1 class="' + (nombre.length > 24 ? 'largo' : '') + '">Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h1>' +
+    '<div class="hero2-cargo">' + esc(cargoDe(u)) + '</div></div></div>' +
+    '<p class="hero2-desc">' + esc(desc) + '</p><span class="hero2-linea"></span>' +
+    (oscuro ? '<a class="cifra-vidrio" href="#/reportar"><span class="cifra-ico">' + ICO.reportar + '</span><span class="cifra-txt"><strong>' + (c.abiertos || 0) +
+      '</strong>Mis reportes en trámite</span></a>' : '') +
+    '</div>' +
+    (cifrasHtml ? '<div class="hero2-cifras">' + cifrasHtml + '</div>' : '') +
     '</div></section>';
+}
+
+function tarjetaGrande(ilu, titulo, texto, boton, destino, clase) {
+  const esLink = destino.charAt(0) === '#';
+  return '<div class="tg ' + (clase || '') + '"><div class="tg-ilu">' + ilu + '</div><div class="tg-cuerpo"><h2>' + esc(titulo) + '</h2><p>' + esc(texto) + '</p>' +
+    (esLink ? '<a class="btn btn-pri tg-btn" href="' + destino + '">' : '<button type="button" class="btn ' + (clase === 'tg-notif' ? 'btn-borde' : 'btn-pri') + ' tg-btn" id="' + destino + '">') +
+    esc(boton) + ICO.flecha + (esLink ? '</a>' : '</button>') + '</div></div>';
+}
+function filaOpcion(ilu, titulo, texto, destino, clase) {
+  const esLink = destino.charAt(0) === '#';
+  return (esLink ? '<a class="fila-op ' + (clase || '') + '" href="' + destino + '">' : '<button type="button" class="fila-op ' + (clase || '') + '" id="' + destino + '">') +
+    '<span class="fila-ilu">' + ilu + '</span><span class="fila-txt"><strong>' + esc(titulo) + '</strong><span>' + esc(texto) + '</span></span>' +
+    '<span class="fila-ir">' + ICO.flecha + '</span>' + (esLink ? '</a>' : '</button>');
 }
 
 async function vistaInicio() {
@@ -328,36 +458,37 @@ async function vistaInicio() {
   const u = E.usuario;
   if (!u) throw new Error('No se pudo cargar su información. Revise la conexión.');
   const c = E.contadores || {};
-  let html = '';
-  html = heroInicio(u, c);
-  html += avisoPush();
-  html += '<div class="opciones">';
-  html += '<a class="opcion" href="#/reportar"><div class="opcion-icono i-reportar">' + ICONO_REPORTAR + '</div>' +
-    '<div><div class="opcion-titulo">Reportar actividades</div><div class="opcion-texto">Reporta un daño o una necesidad a Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos y sigue su estado.</div>' +
-    '</div>' + FLECHA + '</a>';
-  if (esPersonal() && !esAdmin()) {
-    let detalle = '';
-    if (esLider()) detalle = (c.pendientes || 0) + ' por asignar · ' + (c.enCurso || 0) + ' en curso · ' + (c.porConfirmar || 0) + ' por confirmar';
-    else detalle = (c.activas || 0) + ' actividades por hacer';
-    html += '<a class="opcion" href="#/administrar"><div class="opcion-icono i-administrar">' + ICONO_ADMIN + '</div>' +
-      '<div><div class="opcion-titulo">Administrar actividades</div><div class="opcion-texto">' +
-      esc(esLider() ? 'Asigna y sigue las actividades de ' + (esAdmin() ? 'los tres módulos' : u.modulo) + '.' : 'Tus actividades asignadas: inícialas y termínalas con evidencia.') +
-      '</div></div>' + FLECHA + '</a>';
-  }
+  const n = textoNotif();
+  let html = heroInicio(u, c);
+  if (E.instalador) html += '<div class="aviso aviso-accion"><div><strong>Instale la app</strong><br><span class="suave">Queda con su ícono en la pantalla de inicio.</span></div><button class="btn btn-sec" id="btn-instalar">Instalar</button></div>';
   if (esAdmin()) {
-    html += '<a class="opcion" href="#/dashboard"><div class="opcion-icono i-dashboard">' + ICONO_DASHBOARD + '</div>' +
-      '<div><div class="opcion-titulo">Historial</div><div class="opcion-texto">Efectividad de cada módulo y reportes por área, servicio y persona.</div></div>' + FLECHA + '</a>';
+    html += '<div class="filas-op">' +
+      filaOpcion(ILU.campana, n.titulo, n.texto, 'btn-notif', 'fila-notif') +
+      filaOpcion(ILU.historial, 'Historial', 'Consulta el historial de solicitudes, la efectividad de cada módulo y descarga los PDF.', '#/dashboard') +
+      filaOpcion(ILU.reportar, 'Reportar actividades', 'Informa un daño o una necesidad a Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos.', '#/reportar') +
+      '</div>';
+  } else if (u.rol === 'Área') {
+    html += '<div class="tg-grid">' +
+      tarjetaGrande(ILU.campana, n.titulo, n.texto, n.boton, 'btn-notif', 'tg-notif') +
+      tarjetaGrande(ILU.reportar, 'Reportar actividades', 'Informa un daño o una necesidad a Mantenimiento e infraestructura, Sistemas o Equipos Biomédicos y sigue su estado.', 'Reportar aquí', '#/reportar', 'tg-acento') +
+      '</div>';
+  } else {
+    html += '<div class="tg-grid">' +
+      tarjetaGrande(ILU.administrar, 'Administrar actividades', esLider() ? 'Asigna, sigue y confirma las actividades de ' + u.modulo + '.' : 'Consulta tus actividades asignadas y da seguimiento a su estado.',
+        esLider() ? 'Ver actividades' : 'Ver mis actividades', '#/administrar') +
+      tarjetaGrande(ILU.herramienta, 'Reportar actividades', 'Informa un daño o una necesidad a cualquier módulo de la clínica.', 'Reportar aquí', '#/reportar', 'tg-acento') +
+      '</div>' + tarjetaGrande(ILU.campana, n.titulo, n.texto, n.boton, 'btn-notif', 'tg-notif tg-ancha');
   }
-  html += '</div>';
+  html += '<p class="credito credito-pagina">Creado por: David Vega y Jaider Landinez</p>';
   pintar(html);
-  conectarAvisoPush();
+  conectarAvatar();
+  const bn = $('#btn-notif');
+  if (bn) bn.addEventListener('click', () => {
+    if (n.st === 'inactivo') conBoton(bn, 'Activando…', () => activarPush(false)); else abrirCuenta();
+  });
+  const i = $('#btn-instalar');
+  if (i) i.addEventListener('click', async () => { E.instalador.prompt(); await E.instalador.userChoice; E.instalador = null; enrutar(); });
 }
-
-const FLECHA = '<svg class="opcion-flecha" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const ICONO_DASHBOARD = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-
-const ICONO_REPORTAR = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M9 4h6l1 2h3v14H5V6h3l1-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v6M9 13h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-const ICONO_ADMIN = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 // ------------------------------ reportar ------------------------------
 function pestanasReportar(activa) {
@@ -455,34 +586,98 @@ async function vistaMisReportes() {
   const cerrados = lista.filter((s) => ESTADOS_ABIERTOS.indexOf(s.estado) < 0);
   let html = pestanasReportar('mios');
   if (!lista.length) html += vacio('Todavía no hay reportes de esta cuenta.');
-  if (abiertos.length) html += '<h3 class="subtitulo">En trámite</h3>' + abiertos.map((s) => tarjeta(s, { mostrarArea: false })).join('');
-  if (cerrados.length) html += '<h3 class="subtitulo">Cerrados</h3>' + cerrados.slice(0, 40).map((s) => tarjeta(s, { mostrarArea: false })).join('');
+  if (abiertos.length) html += '<h3 class="subtitulo">En trámite</h3><div class="lista-act">' + abiertos.map((s) => tarjeta(s, { mostrarArea: false })).join('') + '</div>';
+  if (cerrados.length) html += '<h3 class="subtitulo">Cerrados</h3><div class="lista-act">' + cerrados.slice(0, 40).map((s) => tarjeta(s, { mostrarArea: false })).join('') + '</div>';
   pintar(html);
 }
 
 // ----------------------------- administrar -----------------------------
+const POR_PAGINA = 8;
+
+function cabeceraPagina(icono, titulo, desc) {
+  return '<section class="cab-pag"><div class="cab-foto"></div><div class="cab-int"><div class="cab-icono">' + icono + '</div>' +
+    '<div><h1>' + esc(titulo) + '</h1><p>' + esc(desc) + '</p></div></div></section>';
+}
+
+function pestanasAct(lista, activa) {
+  return '<nav class="pest-act">' + lista.map((p) => '<a href="' + p.href + '" class="' + (p.id === activa ? 'activa' : '') + '">' + p.ico +
+    '<span>' + esc(p.texto) + '</span>' + (p.n !== undefined ? '<b>' + p.n + '</b>' : '') + '</a>').join('') + '</nav>';
+}
+
+function sinTildes(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+/** Pinta la lista filtrada por la búsqueda, con paginación. */
+function pintarListaAct() {
+  const L = E.lista;
+  const q = sinTildes(L.q).trim();
+  const filtrada = !q ? L.datos : L.datos.filter((x) => sinTildes([x.id, x.tipo, x.area, x.modulo, x.servicio, x.ubicacion, x.tecnicoNombre, x.reportadoPor, x.prioridad, x.estado].join(' ')).indexOf(q) >= 0);
+  const paginas = Math.max(1, Math.ceil(filtrada.length / POR_PAGINA));
+  if (L.pagina > paginas) L.pagina = paginas;
+  const desde = (L.pagina - 1) * POR_PAGINA;
+  const visibles = filtrada.slice(desde, desde + POR_PAGINA);
+  const caja = $('#lista-act');
+  if (!caja) return;
+  caja.innerHTML = (visibles.map((x) => tarjeta(x, { asignar: L.conAsignar })).join('') || vacio(q ? 'No hay actividades que coincidan con la búsqueda.' : L.vacio)) +
+    (filtrada.length ? '<div class="paginacion"><span>Mostrando ' + (desde + 1) + '–' + (desde + visibles.length) + ' de ' + filtrada.length + ' actividades</span>' +
+      '<div class="pag-botones"><button type="button" data-p="' + (L.pagina - 1) + '"' + (L.pagina <= 1 ? ' disabled' : '') + ' aria-label="Anterior">' + ICO.izquierda + '</button>' +
+      Array.from({ length: paginas }, (_, i) => i + 1).filter((n) => paginas <= 7 || Math.abs(n - L.pagina) <= 2 || n === 1 || n === paginas)
+        .map((n) => '<button type="button" data-p="' + n + '" class="' + (n === L.pagina ? 'activa' : '') + '">' + n + '</button>').join('') +
+      '<button type="button" data-p="' + (L.pagina + 1) + '"' + (L.pagina >= paginas ? ' disabled' : '') + ' aria-label="Siguiente">' + ICO.derecha + '</button></div></div>' : '');
+  $$('.paginacion button', caja).forEach((b) => b.addEventListener('click', () => { L.pagina = Number(b.dataset.p); pintarListaAct(); $('#lista-act').scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+  $$('.btn-asignar', caja).forEach((b) => b.addEventListener('click', () => abrirAsignar(L.datos.find((x) => x.id === b.dataset.id))));
+}
+
+function montarLista(datos, opciones) {
+  E.lista = Object.assign({ datos, q: '', pagina: 1 }, opciones);
+  const b = $('#buscar-act');
+  if (b) b.addEventListener('input', () => { E.lista.q = b.value; E.lista.pagina = 1; pintarListaAct(); });
+  pintarListaAct();
+}
+
+/** Asignación rápida desde la lista (misma acción "asignar" del detalle). */
+async function abrirAsignar(sol) {
+  if (!sol) return;
+  const m = abrirModal('<h3>Asignar ' + esc(sol.id) + '</h3><p class="suave">' + esc(sol.tipo) + ' · ' + esc(sol.area) + ' · Piso ' + esc(sol.piso) + ' · ' + esc(sol.ubicacion) + '</p>' +
+    '<label>Personal de ' + esc(sol.modulo) + '<select id="asig-tecnico"><option value="">Cargando…</option></select></label>' +
+    '<div class="modal-botones"><button type="button" class="btn btn-sec" id="modal-no">Cancelar</button><button type="button" class="btn btn-pri" id="asig-si">Asignar</button></div>');
+  $('#modal-no', m).addEventListener('click', cerrarModal);
+  try {
+    const lista = await api('tecnicos', { modulo: sol.modulo });
+    $('#asig-tecnico', m).innerHTML = '<option value="">Elija una persona</option>' + lista.map((t) =>
+      '<option value="' + esc(t.usuario) + '">' + esc(t.nombre) + (t.rol === 'Líder' ? ' (líder)' : '') + '</option>').join('');
+  } catch (e) { mostrarError(e.message); }
+  const b = $('#asig-si', m);
+  b.addEventListener('click', () => conBoton(b, 'Asignando…', async () => {
+    const t = $('#asig-tecnico', m).value;
+    if (!t) { mostrarError('Elija a quién asignar'); return; }
+    try {
+      await api('asignar', { id: sol.id, tecnico: t });
+      cerrarModal(); toast('Asignada. El técnico fue notificado.'); refrescarResumen(); enrutar();
+    } catch (e) { mostrarError(e.message); }
+  }));
+}
+
 async function vistaAdministrar(pestana) {
   if (!esPersonal() || esAdmin()) { location.replace('#/'); return; }
   ponerBarra('Administrar actividades', true);
+  document.body.classList.add('en-pagina');
   cargando();
   const u = E.usuario;
+  const buscador = '<label class="buscador">' + ICO.buscar + '<input type="search" id="buscar-act" placeholder="Buscar actividad…" autocomplete="off"></label>';
   if (!esLider()) {
     const lista = await api('misActividades');
     const activas = lista.filter((s) => s.estado === 'Asignada' || s.estado === 'En proceso').sort(porPrioridad);
     const otras = lista.filter((s) => !(s.estado === 'Asignada' || s.estado === 'En proceso'));
     const p = pestana === 'terminadas' ? 'terminadas' : 'activas';
-    pintar(pestanas([
-      { id: 'activas', texto: 'Por hacer', href: '#/administrar/activas', n: activas.length },
-      { id: 'terminadas', texto: 'Terminadas', href: '#/administrar/terminadas' }
-    ], p) + (p === 'activas' ? (activas.map((s) => tarjeta(s)).join('') || vacio('No tiene actividades pendientes.')) :
-      (otras.map((s) => tarjeta(s)).join('') || vacio('Aún no ha terminado actividades.'))));
+    pintar(cabeceraPagina(ILU.administrar, 'Administrar actividades', 'Consulta tus actividades asignadas: inícialas y termínalas con evidencia.') +
+      '<div class="barra-act">' + pestanasAct([
+        { id: 'activas', texto: 'Por hacer', href: '#/administrar/activas', n: activas.length, ico: ICO.play },
+        { id: 'terminadas', texto: 'Terminadas', href: '#/administrar/terminadas', ico: ICO.pasado }
+      ], p) + buscador + '</div><div id="lista-act" class="lista-act"></div>');
+    montarLista(p === 'activas' ? activas : otras, { vacio: p === 'activas' ? 'No tiene actividades pendientes.' : 'Aún no ha terminado actividades.' });
     return;
   }
-  const esCoord = esAdmin();
-  const [lista, mias] = await Promise.all([
-    api('panelModulo', { modulo: E.filtroModulo }),
-    u.rol === 'Líder' ? api('misActividades') : Promise.resolve([])
-  ]);
+  const [lista, mias] = await Promise.all([api('panelModulo', {}), api('misActividades')]);
   const grupos = {
     'por-asignar': lista.filter((s) => s.estado === 'Pendiente' || s.estado === 'Reabierta').sort(porPrioridad),
     'en-curso': lista.filter((s) => s.estado === 'Asignada' || s.estado === 'En proceso'),
@@ -492,30 +687,22 @@ async function vistaAdministrar(pestana) {
   };
   const p = grupos[pestana] ? pestana : 'por-asignar';
   const tabs = [
-    { id: 'por-asignar', texto: 'Por asignar', href: '#/administrar/por-asignar', n: grupos['por-asignar'].length },
-    { id: 'en-curso', texto: 'En curso', href: '#/administrar/en-curso', n: grupos['en-curso'].length },
-    { id: 'por-confirmar', texto: 'Por confirmar', href: '#/administrar/por-confirmar', n: grupos['por-confirmar'].length },
-    { id: 'historial', texto: 'Historial', href: '#/administrar/historial' }
+    { id: 'por-asignar', texto: 'Por asignar', href: '#/administrar/por-asignar', n: grupos['por-asignar'].length, ico: ICO.actividades },
+    { id: 'en-curso', texto: 'En curso', href: '#/administrar/en-curso', n: grupos['en-curso'].length, ico: ICO.play },
+    { id: 'por-confirmar', texto: 'Por confirmar', href: '#/administrar/por-confirmar', n: grupos['por-confirmar'].length, ico: ICO.confirmar },
+    { id: 'historial', texto: 'Historial', href: '#/administrar/historial', ico: ICO.pasado }
   ];
-  if (grupos.mias.length || p === 'mias') tabs.push({ id: 'mias', texto: 'Mías', href: '#/administrar/mias', n: grupos.mias.length });
-  let html = '';
-  if (esCoord) {
-    html += '<div class="filtro-modulos">' + ['Todos'].concat(E.config.modulos).map((m) =>
-      '<button type="button" class="filtro ' + (m === E.filtroModulo ? 'activo' : '') + '" data-modulo="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>';
-  } else {
-    html += '<p class="modulo-actual">Módulo: <strong>' + esc(u.modulo) + '</strong></p>';
-  }
-  html += pestanas(tabs, p);
+  if (grupos.mias.length || p === 'mias') tabs.push({ id: 'mias', texto: 'Mías', href: '#/administrar/mias', n: grupos.mias.length, ico: ICO.mia });
   const textosVacios = {
     'por-asignar': 'No hay solicitudes por asignar.', 'en-curso': 'No hay actividades en curso.',
     'por-confirmar': 'No hay actividades terminadas esperando su confirmación.', 'historial': 'El historial está vacío.',
     'mias': 'No tiene actividades asignadas.'
   };
-  if (p === 'historial') html += botonPdf();
-  html += grupos[p].map((s) => tarjeta(s)).join('') || vacio(textosVacios[p]);
-  pintar(html);
+  pintar(cabeceraPagina(ILU.administrar, 'Administrar actividades', 'Gestiona y da seguimiento a las actividades de ' + u.modulo + ' reportadas por las diferentes áreas de la clínica.') +
+    '<div class="barra-act">' + pestanasAct(tabs, p) + buscador + '</div>' + (p === 'historial' ? botonPdf() : '') +
+    '<div id="lista-act" class="lista-act"></div>');
   conectarBotonPdf();
-  $$('.filtro').forEach((b) => b.addEventListener('click', () => { E.filtroModulo = b.dataset.modulo; vistaAdministrar(p); }));
+  montarLista(grupos[p], { vacio: textosVacios[p], conAsignar: p === 'por-asignar' });
 }
 
 function porPrioridad(a, b) {
@@ -801,7 +988,10 @@ function diaLocal(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 600
 
 function abrirDescargaPdf() {
   const hoy = new Date();
+  const lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - ((hoy.getDay() + 6) % 7));
   const rangos = {
+    'esta-semana': [diaLocal(lunes), diaLocal(hoy)],
+    'semana-anterior': [diaLocal(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() - 7)), diaLocal(new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() - 1))],
     'este-mes': [diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), diaLocal(hoy)],
     'mes-anterior': [diaLocal(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)), diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 0))],
     'este-ano': [diaLocal(new Date(hoy.getFullYear(), 0, 1)), diaLocal(hoy)]
@@ -811,7 +1001,7 @@ function abrirDescargaPdf() {
     (esAdmin() ? '<label>Módulo<select id="pdf-modulo"><option value="Todos">Todos los módulos</option>' +
       E.config.modulos.map((x) => '<option>' + esc(x) + '</option>').join('') + '</select></label>' :
       '<p>Módulo: <strong>' + esc(E.usuario.modulo) + '</strong></p>') +
-    '<div class="atajos-fecha"><button type="button" data-r="este-mes" class="activo">Este mes</button><button type="button" data-r="mes-anterior">Mes anterior</button><button type="button" data-r="este-ano">Este año</button></div>' +
+    '<div class="atajos-fecha"><button type="button" data-r="esta-semana">Esta semana</button><button type="button" data-r="semana-anterior">Semana anterior</button><button type="button" data-r="este-mes" class="activo">Este mes</button><button type="button" data-r="mes-anterior">Mes anterior</button><button type="button" data-r="este-ano">Este año</button></div>' +
     '<div class="fila-fechas"><label>Desde<input type="date" id="pdf-desde" value="' + rangos['este-mes'][0] + '"></label>' +
     '<label>Hasta<input type="date" id="pdf-hasta" value="' + rangos['este-mes'][1] + '"></label></div>' +
     '<div class="modal-botones"><button type="button" class="btn btn-sec" id="modal-no">Cancelar</button>' +
@@ -1073,13 +1263,15 @@ function abrirCuenta() {
   const st = estadoPush();
   const textoPush = { activo: 'Activadas en este dispositivo', inactivo: 'Desactivadas', bloqueado: 'Bloqueadas en el navegador',
     'ios-instalar': 'Instale la app para activarlas', 'no-soportado': 'No disponibles en este navegador' }[st];
-  const m = abrirModal('<h3>' + esc(u.nombre) + '</h3><p class="suave">Usuario: ' + esc(u.usuario) + ' · ' + esc(u.rol) +
-    (u.modulo && u.rol !== 'Área' ? ' · ' + esc(u.modulo) : '') + '</p>' +
+  const m = abrirModal('<div class="cuenta-cab">' + avatar(u, 'l', true) + '<div><h3>' + esc(u.nombre) + '</h3><p class="suave">Usuario: ' + esc(u.usuario) + ' · ' + esc(u.rol) +
+    (u.modulo && u.rol !== 'Área' ? ' · ' + esc(u.modulo) : '') + '</p><p class="suave pequeno">Toque la cámara para cambiar su foto de perfil.</p></div></div>' +
     '<p>Notificaciones: <strong>' + esc(textoPush) + '</strong></p>' +
     '<div class="modal-botones columna">' +
     (st === 'inactivo' || st === 'activo' ? '<button class="btn btn-sec" id="cuenta-push">' + (st === 'activo' ? 'Volver a registrar este dispositivo' : 'Activar notificaciones') + '</button>' : '') +
     '<button class="btn btn-peligro" id="cuenta-salir">Cerrar sesión</button>' +
-    '<button class="btn btn-texto" id="cuenta-cerrar">Volver</button></div>');
+    '<button class="btn btn-texto" id="cuenta-cerrar">Volver</button></div>' +
+    '<p class="credito">Creado por: David Vega y Jaider Landinez</p>');
+  conectarAvatar();
   $('#cuenta-cerrar', m).addEventListener('click', cerrarModal);
   $('#cuenta-salir', m).addEventListener('click', () => { cerrarModal(); cerrarSesion(); });
   const p = $('#cuenta-push', m);
