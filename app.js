@@ -182,7 +182,7 @@ function ponerBarra(titulo, conAtras) {
 function cargoDe(u) {
   if (!u) return '';
   if (u.rol === 'Área') return 'Cuenta de ' + u.nombre;
-  if (esAdmin()) return 'Administración';
+  if (esAdmin()) return 'Gerente Financiero';
   return u.rol + ' de ' + u.modulo;
 }
 function iniciales(u) {
@@ -290,7 +290,7 @@ const PILA = []; // pantallas visitadas, para el botón Atrás
 
 async function enrutar() {
   cerrarModal();
-  document.body.classList.remove('en-login', 'en-inicio', 'en-pagina');
+  document.body.classList.remove('en-login', 'en-inicio', 'en-pagina', 'en-historial');
   const h = location.hash || '#/';
   if (PILA[PILA.length - 1] !== h) {
     if (PILA[PILA.length - 2] === h) PILA.pop(); else PILA.push(h);
@@ -422,12 +422,12 @@ function heroInicio(u, c) {
   const cifrasHtml = cifras.map(([n, t, ico, href]) => '<a class="cifra" href="' + href + '"><span class="cifra-ico">' + ico + '</span>' +
     '<span class="cifra-txt"><strong>' + (n || 0) + '</strong>' + esc(t) + '</span><span class="cifra-ir">' + ICO.flecha + '</span></a>').join('');
   return '<section class="hero2 ' + (oscuro ? 'hero-oscuro' : 'hero-claro') + '">' +
-    '<div class="hero2-foto"></div>' +
+    '<div class="hero2-foto"></div><span class="nv-nieve" aria-hidden="true"></span>' +
     '<div class="hero2-int">' +
     '<div class="hero2-texto">' +
     '<div class="hero2-fecha">' + esc(hoy.charAt(0).toUpperCase() + hoy.slice(1)) + '</div>' +
     '<div class="hero2-saludo">' + avatar(u, 'xl', true) +
-    '<div><h1 class="' + (nombre.length > 24 ? 'largo' : '') + '">Hola' + (nombre ? ', ' + esc(nombre) : '') + '</h1>' +
+    '<div class="hero2-nombre"><h1 class="' + (nombre.length > 24 ? 'largo' : '') + '"><span class="hola">Hola' + (nombre ? ',' : '') + '</span>' + (nombre ? '<span class="nom">' + esc(nombre) + '</span>' : '') + '</h1>' +
     '<div class="hero2-cargo">' + esc(cargoDe(u)) + '</div></div></div>' +
     '<p class="hero2-desc">' + esc(desc) + '</p><span class="hero2-linea"></span>' +
     (oscuro ? '<a class="cifra-vidrio" href="#/reportar"><span class="cifra-ico">' + ICO.reportar + '</span><span class="cifra-txt"><strong>' + (c.abiertos || 0) +
@@ -502,14 +502,8 @@ async function vistaReportar() {
   ponerBarra('Reportar actividades', true);
   if (!E.config || !E.config.torres) await refrescarResumen();
   const cfg = E.config;
-  const opcionesAreas = (esLider() || esAdmin()) ?
-    '<fieldset class="caja-lider"><legend>Reportar a nombre de un área (opcional)</legend>' +
-    '<label>Área<select name="cuentaArea"><option value="">— No, lo reporto yo —</option>' +
-    cfg.areas.map((a) => '<option value="' + esc(a.usuario) + '">' + esc(a.nombre) + '</option>').join('') + '</select></label>' +
-    '</fieldset>' : '';
   pintar(pestanasReportar('nuevo') +
     '<form id="form-reporte" class="formulario" novalidate>' +
-    opcionesAreas +
     '<div class="campo"><span class="etiqueta">¿A quién va dirigido?</span><div class="modulos">' +
     cfg.modulos.map((m, i) => '<label class="modulo-op"><input type="radio" name="modulo" value="' + esc(m) + '"' + (i === 0 ? '' : '') + ' required><span>' + esc(m) + '</span></label>').join('') +
     '</div></div>' +
@@ -565,14 +559,13 @@ async function vistaReportar() {
     if (!datos.descripcion.trim()) faltan.push('la descripción');
     if (!datos.reportadoPor.trim()) faltan.push('su nombre');
     if (faltan.length) { mostrarError('Falta: ' + faltan.join(', ')); return; }
-    if (f.cuentaArea && f.cuentaArea.value) { datos.cuentaArea = f.cuentaArea.value; datos.origen = 'App'; }
     await conBoton($('button[type=submit]', f), 'Enviando…', async () => {
       try {
         datos.foto = await fotoDe(f, 'foto');
         const r = await api('crearSolicitud', datos);
         guardar('ultimoNombre', datos.reportadoPor.trim());
         toast('Reporte ' + r.id + ' enviado. El líder de ' + datos.modulo + ' ya fue notificado.');
-        location.hash = datos.cuentaArea ? (esAdmin() ? '#/' : '#/administrar') : '#/mis-reportes';
+        location.hash = '#/mis-reportes';
       } catch (e) { mostrarError(e.message); }
     });
   });
@@ -595,7 +588,7 @@ async function vistaMisReportes() {
 const POR_PAGINA = 8;
 
 function cabeceraPagina(icono, titulo, desc) {
-  return '<section class="cab-pag"><div class="cab-foto"></div><div class="cab-int"><div class="cab-icono">' + icono + '</div>' +
+  return '<section class="cab-pag"><div class="cab-foto"></div><span class="nv-nieve" aria-hidden="true"></span><div class="cab-int"><div class="cab-icono">' + icono + '</div>' +
     '<div><h1>' + esc(titulo) + '</h1><p>' + esc(desc) + '</p></div></div></section>';
 }
 
@@ -906,6 +899,7 @@ function columnas(serie, periodo) {
 
 async function vistaDashboard(periodo) {
   if (!esAdmin()) { location.replace('#/'); return; }
+  document.body.classList.add('en-historial');
   const p = PERIODOS.some((x) => x[0] === periodo) ? periodo : 'mes';
   ponerBarra('Historial', true);
   cargando();

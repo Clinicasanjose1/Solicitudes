@@ -11,14 +11,15 @@
   var q = location.search;
   var forzar = /[?&]navidad=1/.test(q);
   if (/[?&]navidad=0/.test(q)) return;
-  if (!forzar) {
-    var hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate();
-    var d = DESDE[0] * 100 + DESDE[1], h = HASTA[0] * 100 + HASTA[1];
-    var enTemporada = d <= h ? (md >= d && md <= h) : (md >= d || md <= h);
-    if (!enTemporada) return;
-    // Si la app se abrió desde una notificación, ir directo a la solicitud
-    if (location.hash.indexOf('#/solicitud/') === 0) return;
-  }
+  var hoy = new Date(), md = (hoy.getMonth() + 1) * 100 + hoy.getDate();
+  var d = DESDE[0] * 100 + DESDE[1], h = HASTA[0] * 100 + HASTA[1];
+  var enTemporada = d <= h ? (md >= d && md <= h) : (md >= d || md <= h);
+  if (!enTemporada && !forzar) return;
+  // Decoraciones navideñas en toda la app (ver "Decoración navideña" en styles.css)
+  document.documentElement.classList.add('es-navidad');
+  // Si la app se abrió desde una notificación, ir directo a la solicitud sin intro
+  if (!forzar && location.hash.indexOf('#/solicitud/') === 0) return;
+  if (/[?&]intro=0/.test(q)) return; // decoraciones sí, intro no
 
   var css = [
     '#nv{position:fixed;inset:0;z-index:99999;overflow:hidden;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;',

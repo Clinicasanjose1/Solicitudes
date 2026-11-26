@@ -561,3 +561,100 @@ body.en-pagina { background: #f1f5fa; }
   .tg-btn { font-size: 15px; padding: 11px 16px; }
   .tg h2 { font-size: 21px; }
 }
+
+
+/* ============ v6: más contraste, prioridades, historial y nombre ============ */
+:root { --suave: #44535b; --borde: #b9c7d3; }
+/* Encabezados con la foto de la clínica más nítida */
+.hero-claro { background: #dbe7f6; }
+.hero-claro .hero2-foto, .cab-foto { filter: saturate(1.7) contrast(1.4) brightness(.8); }
+.hero-claro .hero2-foto { opacity: .42; }
+@media (min-width: 900px) { .hero-claro .hero2-foto { opacity: 1; } }
+.cab-foto { opacity: .5; }
+.hero-claro .hero2-desc, .cab-pag p { color: #142c45; font-weight: 500; }
+.hero-claro .hero2-cargo { color: #1450b8; }
+/* Cifras del líder y del técnico */
+.cifra { border: 2px solid var(--navy); box-shadow: 0 10px 24px rgba(5, 33, 74, .28); color: #062b57; }
+.cifra-txt { font-weight: 700; font-size: 14px; }
+.cifra-txt strong { color: #04214a; }
+.cifra-ico { background: var(--navy); color: #fff; }
+.cifra-ir { background: #1d5bd1; color: #fff; }
+/* Tarjetas grandes y filas del inicio */
+.tg { background: #fff; border: 1.5px solid #b7cbe4; box-shadow: 0 10px 26px rgba(10, 58, 116, .13); }
+.tg-acento { background: linear-gradient(140deg, #ffffff 0%, #e3f0fd 100%); border-color: #b7cbe4; }
+.tg::before { background: rgba(47, 111, 220, .16); }
+.tg h2 { color: #072f62; }
+.tg p, .fila-txt span { color: #1f344a; }
+.fila-ir { background: var(--navy); color: #fff; }
+/* Actividades */
+.act { box-shadow: 0 6px 20px rgba(10, 58, 116, .14); border-top: 1px solid #d3deea; border-right: 1px solid #d3deea; border-bottom: 1px solid #d3deea; }
+.act-linea { color: #24394f; }
+.act-linea svg { color: #3d5a78; }
+.pest-act a { border-color: #b9c9db; }
+.pest-act a b { background: var(--navy); color: #fff; }
+.buscador { border-color: #9fb3c8; color: #34495c; }
+.cab-icono { box-shadow: 0 6px 16px rgba(10, 58, 116, .25); }
+
+/* Prioridades: conservan su color, con relleno y borde negro */
+.prio-op span, .prio-op.p-urgente span, .prio-op.p-alta span, .prio-op.p-media span, .prio-op.p-baja span {
+  border: 2px solid #111; color: #fff; padding: 9px 16px; transition: transform .12s, box-shadow .12s; }
+.prio-op.p-urgente span { background: #c0392b; }
+.prio-op.p-alta span { background: #e67e22; }
+.prio-op.p-media span { background: #f4c430; color: #231a00; }
+.prio-op.p-baja span { background: #2f74d0; }
+.prio-op.p-urgente input:checked + span, .prio-op.p-alta input:checked + span,
+.prio-op.p-media input:checked + span, .prio-op.p-baja input:checked + span {
+  border: 3px solid #000; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #000; transform: scale(1.04); padding: 8px 15px; }
+.prio-op input:checked + span::before { content: "✓ "; font-weight: 900; }
+.prio-op input:focus-visible + span { outline: 3px solid #1d5bd1; outline-offset: 4px; }
+.badge-prio { background: var(--c); color: #fff; border: 2px solid #111; }
+.prio-media .badge-prio { color: #231a00; }
+.chip.p-urgente, .chip.p-alta, .chip.p-media, .chip.p-baja { border: 1.5px solid #111; }
+.chip.p-media { color: #231a00; }
+
+/* Historial del Admin: todos los recuadros con borde negro */
+.en-historial .kpi, .en-historial .tarjeta-dash, .en-historial .prio-dash,
+.en-historial .pestanas a, .en-historial .btn-pdf { border: 1.5px solid #111; }
+.en-historial .pestanas a.activa { border-color: #111; }
+
+/* Saludo: "Hola," arriba y el nombre en líneas parejas */
+.hero2-saludo { gap: 22px; }
+.hero2-nombre { min-width: 0; }
+.hero2 h1 { display: grid; gap: 6px; }
+.hero2 h1 .hola { font-size: .62em; font-weight: 700; opacity: .9; letter-spacing: 0; }
+.hero2 h1 .nom { text-wrap: balance; line-height: 1.12; }
+.hero2-cargo { margin-top: 10px; text-wrap: balance; line-height: 1.25; }
+@media (min-width: 900px) {
+  .hero2-saludo { gap: 30px; }
+  .hero2-nombre { max-width: 460px; }
+  .hero2-int { grid-template-columns: 1fr; align-items: start; }
+  .hero2-texto { max-width: 640px; }
+  .hero2-cifras { justify-self: end; margin-top: -8px; }
+  .hero2 h1 { font-size: 40px; }
+  .hero2 h1.largo { font-size: 36px; }
+}
+
+/* ============ Decoración navideña (solo en temporada, ver navidad.js) ============ */
+.nv-nieve { display: none; }
+.es-navidad .nv-nieve { display: block; position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .85;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g fill='%23fff'><circle cx='20' cy='30' r='2'/><circle cx='70' cy='12' r='1.4'/><circle cx='120' cy='50' r='2.4'/><circle cx='160' cy='20' r='1.3'/><circle cx='40' cy='100' r='1.6'/><circle cx='95' cy='130' r='2.2'/><circle cx='150' cy='110' r='1.5'/><circle cx='10' cy='160' r='1.3'/><circle cx='130' cy='170' r='1.8'/><circle cx='75' cy='75' r='1.2'/></g></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g fill='%23fff'><circle cx='20' cy='30' r='2'/><circle cx='70' cy='12' r='1.4'/><circle cx='120' cy='50' r='2.4'/><circle cx='160' cy='20' r='1.3'/><circle cx='40' cy='100' r='1.6'/><circle cx='95' cy='130' r='2.2'/><circle cx='150' cy='110' r='1.5'/><circle cx='10' cy='160' r='1.3'/><circle cx='130' cy='170' r='1.8'/><circle cx='75' cy='75' r='1.2'/></g></svg>"); background-size: 180px 180px, 260px 260px; background-position: 0 0, 60px 40px;
+  animation: nvNieve 14s linear infinite; -webkit-mask-image: linear-gradient(to right, transparent 25%, #000 60%); mask-image: linear-gradient(to right, transparent 25%, #000 60%); }
+.es-navidad .hero-oscuro .nv-nieve { -webkit-mask-image: none; mask-image: none; opacity: .6; }
+@keyframes nvNieve { to { background-position: 40px 180px, 100px 300px; } }
+.es-navidad .hero2::after, .es-navidad .cab-pag::after, .es-navidad .login-tarjeta::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; z-index: 3; pointer-events: none;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40'><defs><filter id='b'><feGaussianBlur stdDeviation='3'/></filter></defs><path d='M0 3 C60 24 140 24 200 3' fill='none' stroke='%231d3b2a' stroke-width='2'/><circle cx='26.3' cy='20.6' r='9' fill='%23ff3b4a' opacity='.55' filter='url(%23b)'/><rect x='23.3' y='9.6' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='26.3' cy='20.6' rx='4.5' ry='6.5' fill='%23ff3b4a'/><ellipse cx='24.9' cy='18.1' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='74.9' cy='27.8' r='9' fill='%23ffcc33' opacity='.55' filter='url(%23b)'/><rect x='71.9' y='16.8' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='74.9' cy='27.8' rx='4.5' ry='6.5' fill='%23ffcc33'/><ellipse cx='73.5' cy='25.3' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='125.1' cy='27.8' r='9' fill='%232fd07a' opacity='.55' filter='url(%23b)'/><rect x='122.1' y='16.8' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='125.1' cy='27.8' rx='4.5' ry='6.5' fill='%232fd07a'/><ellipse cx='123.7' cy='25.3' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='173.7' cy='20.6' r='9' fill='%235ab4ff' opacity='.55' filter='url(%23b)'/><rect x='170.7' y='9.6' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='173.7' cy='20.6' rx='4.5' ry='6.5' fill='%235ab4ff'/><ellipse cx='172.3' cy='18.1' rx='1.2' ry='2' fill='%23fff' opacity='.75'/></svg>") 0 0 / 200px 40px repeat-x; animation: nvFocos 1.6s ease-in-out infinite alternate; }
+.es-navidad .login-tarjeta { position: relative; overflow: hidden; padding-top: 50px; }
+.es-navidad .login-tarjeta::before { border-radius: inherit; }
+@keyframes nvFocos { from { filter: brightness(.85) saturate(1); } to { filter: brightness(1.25) saturate(1.3); } }
+.es-navidad .hero2-int { padding-top: 34px; }
+.es-navidad .cab-int { padding-top: 30px; }
+.es-navidad .hero2-fecha { margin-bottom: 34px; }
+.es-navidad .hero2 .avatar-xl::before { content: ""; position: absolute; z-index: 3; left: -16%; top: -27%; width: 64%; aspect-ratio: 1.2;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 100'><path d='M14 74 C22 40 46 14 78 12 C96 11 108 24 112 44 C104 34 94 32 86 38 C80 50 86 64 92 74 Z' fill='%23d4202c'/><path d='M40 30 C55 18 72 14 86 16' fill='none' stroke='%23ff5a63' stroke-width='5' stroke-linecap='round' opacity='.55'/><rect x='6' y='68' width='96' height='22' rx='11' fill='%23fff'/><rect x='6' y='68' width='96' height='22' rx='11' fill='none' stroke='%23d9e2ec' stroke-width='2'/><circle cx='110' cy='50' r='10' fill='%23fff' stroke='%23d9e2ec' stroke-width='2'/></svg>") center / contain no-repeat; transform: rotate(-24deg); pointer-events: none; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
+@media (min-width: 900px) {
+  .es-navidad .lateral:not([hidden])::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; z-index: 2; pointer-events: none;
+    background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='40' viewBox='0 0 200 40'><defs><filter id='b'><feGaussianBlur stdDeviation='3'/></filter></defs><path d='M0 3 C60 24 140 24 200 3' fill='none' stroke='%231d3b2a' stroke-width='2'/><circle cx='26.3' cy='20.6' r='9' fill='%23ff3b4a' opacity='.55' filter='url(%23b)'/><rect x='23.3' y='9.6' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='26.3' cy='20.6' rx='4.5' ry='6.5' fill='%23ff3b4a'/><ellipse cx='24.9' cy='18.1' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='74.9' cy='27.8' r='9' fill='%23ffcc33' opacity='.55' filter='url(%23b)'/><rect x='71.9' y='16.8' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='74.9' cy='27.8' rx='4.5' ry='6.5' fill='%23ffcc33'/><ellipse cx='73.5' cy='25.3' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='125.1' cy='27.8' r='9' fill='%232fd07a' opacity='.55' filter='url(%23b)'/><rect x='122.1' y='16.8' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='125.1' cy='27.8' rx='4.5' ry='6.5' fill='%232fd07a'/><ellipse cx='123.7' cy='25.3' rx='1.2' ry='2' fill='%23fff' opacity='.75'/><circle cx='173.7' cy='20.6' r='9' fill='%235ab4ff' opacity='.55' filter='url(%23b)'/><rect x='170.7' y='9.6' width='6' height='5' rx='1' fill='%23324a3c'/><ellipse cx='173.7' cy='20.6' rx='4.5' ry='6.5' fill='%235ab4ff'/><ellipse cx='172.3' cy='18.1' rx='1.2' ry='2' fill='%23fff' opacity='.75'/></svg>") 0 0 / 200px 40px repeat-x; animation: nvFocos 1.6s ease-in-out infinite alternate; }
+  .es-navidad .lateral:not([hidden]) { padding-top: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .es-navidad .nv-nieve, .es-navidad .hero2::after, .es-navidad .cab-pag::after { animation: none; } }
