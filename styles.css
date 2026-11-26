@@ -658,3 +658,7 @@ body.en-pagina { background: #f1f5fa; }
   .es-navidad .lateral:not([hidden]) { padding-top: 40px; }
 }
 @media (prefers-reduced-motion: reduce) { .es-navidad .nv-nieve, .es-navidad .hero2::after, .es-navidad .cab-pag::after { animation: none; } }
+
+/* El selector de foto queda invisible pero tocable desde el botón de la cámara (funciona en iPhone y Android) */
+.input-avatar { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; margin: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+.avatar-editable { cursor: pointer; }

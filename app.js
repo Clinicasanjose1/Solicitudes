@@ -193,9 +193,14 @@ function iniciales(u) {
 function avatar(u, tam, editable) {
   const cont = '<span>' + esc(iniciales(u)) + '</span>' + (u && u.foto ? '<img src="' + esc(u.foto) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '');
   return '<div class="avatar avatar-' + tam + '">' + cont +
-    (editable ? '<label class="avatar-camara" title="Cambiar foto de perfil"><input type="file" accept="image/*" class="input-avatar" hidden>' + ICO.camara + '</label>' : '') + '</div>';
+    (editable ? '<label class="avatar-camara" title="Cambiar foto de perfil"><input type="file" accept="image/*" class="input-avatar">' + ICO.camara + '</label>' : '') + '</div>';
 }
 function conectarAvatar() {
+  $$('.input-avatar').forEach((inp) => {
+    // Tocar cualquier parte de la foto (no solo la cámara) abre el selector
+    const marco = inp.closest('.avatar');
+    if (marco) { marco.classList.add('avatar-editable'); marco.addEventListener('click', (e) => { if (!e.target.closest('label')) inp.click(); }); }
+  });
   $$('.input-avatar').forEach((inp) => inp.addEventListener('change', async () => {
     const f = inp.files && inp.files[0];
     if (!f) return;
@@ -209,7 +214,12 @@ function conectarAvatar() {
       toast('Foto de perfil actualizada');
       pintarLateral();
       if ((location.hash || '#/') === '#/' || location.hash === '') vistaInicio(); else caja.classList.remove('subiendo');
-    } catch (e) { caja.classList.remove('subiendo'); mostrarError(e.message); }
+    } catch (e) {
+      caja.classList.remove('subiendo');
+      mostrarError(/Acción no válida/.test(e.message)
+        ? 'El servidor todavía no tiene la función de foto de perfil. Hay que publicar la nueva versión de Apps Script (Implementar → Gestionar implementaciones → ✏️ → Nueva versión).'
+        : e.message);
+    } finally { inp.value = ''; } // permite volver a elegir la misma foto
   }));
 }
 /** Recorta la foto al centro en cuadrado y la reduce para que suba rápido. */
@@ -222,7 +232,7 @@ function recortarCuadrado(archivo, lado) {
       c.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, lado, lado);
       URL.revokeObjectURL(url); resolver(c.toDataURL('image/jpeg', 0.8));
     };
-    img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('No se pudo leer la foto')); };
+    img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('No se pudo abrir esa foto' + (/heic|heif/i.test(archivo.type + archivo.name) ? ' (formato HEIC del iPhone)' : '') + '. Pruebe con otra foto o con una captura de pantalla.')); };
     img.src = url;
   });
 }
